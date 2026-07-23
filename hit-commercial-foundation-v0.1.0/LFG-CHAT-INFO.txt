@@ -1,0 +1,20 @@
+# LFG CHAT
+
+Use this channel to coordinate with players after creating or joining an LFG.
+
+## HOW TO FIND A GROUP
+1. Go to <#1528950639596408842>.
+2. Press **Create LFG** and complete the guided form.
+3. Open the LFG post and use the **Join** or **Leave** buttons.
+4. Use this chat for quick coordination, then move to the correct voice channel or game lobby.
+
+## CHAT RULES
+- Keep messages related to finding, joining, and organizing groups.
+- Respect the game, platform, region, rank, age, microphone, and skill requirements listed by the host.
+- Do not spam, fake-join, troll groups, or repeatedly leave after taking a slot.
+- No account buying, selling, trading, boosting, cheats, exploits, scams, paid carries, or suspicious links.
+- Never share passwords, login codes, recovery codes, tokens, QR codes, or payment details.
+- Do not harass players because of skill, voice, platform, gender, or region.
+- Close your LFG when your group is full or finished.
+
+Use `/lfg mine` to view your active posts. Staff may remove unsafe groups or members who misuse LFG.

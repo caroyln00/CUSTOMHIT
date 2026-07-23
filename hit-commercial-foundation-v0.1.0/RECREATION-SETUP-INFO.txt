@@ -1,0 +1,50 @@
+HIT v7.56.0 GIVEAWAYS AND EVENTS
+
+Setup commands:
+/recreation setup
+/recreation diagnose
+/recreation config
+/recreation active
+
+Recommended setup:
+Giveaway channel: #recreation
+Event channel: #recreation
+Log channel: #transcripts
+Notification role: optional
+Default giveaway duration: 1440 minutes
+Default event reminder: 60 minutes (0 disables automatic reminders)
+
+Giveaway creation:
+/recreation giveaway-create
+
+Duration examples:
+30m
+2h
+3d
+1w
+
+Giveaway management:
+/recreation giveaway-end
+/recreation giveaway-reroll
+/recreation giveaway-cancel
+
+Event creation and management:
+/recreation event-create
+/recreation event-cancel
+/recreation event-remind
+
+Member controls:
+- Enter or Leave giveaway button
+- Attending, Maybe, and Not Attending event buttons
+
+Prefix commands:
+;recreation active
+;giveaway active
+;event active
+;giveaway end <id>
+;giveaway reroll <id>
+;giveaway cancel <id>
+;event cancel <id>
+;event remind <id>
+
+HIT needs View Channel, Send Messages, Embed Links, and Read Message History in the giveaway, event, and log channels.

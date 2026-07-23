@@ -1,0 +1,71 @@
+HIT v7.56.0 ECONOMY, COUNTING, AND STARBOARD
+
+SETUP
+
+Run:
+/community setup
+
+Recommended starting values:
+
+Log channel: #transcripts
+Currency name: credits
+Starting balance: 0
+Daily reward: 250
+Daily cooldown: 24 hours
+Work minimum: 50
+Work maximum: 150
+Work cooldown: 60 minutes
+Counting channel: your dedicated counting channel, or leave blank
+Reset counting on mistake: True
+Delete invalid counting messages: True
+Starboard channel: your dedicated starboard channel, or leave blank
+Star threshold: 3
+Star reaction: ⭐
+Allow self-star: False
+
+CHECKS
+
+/community diagnose
+/community config
+/counting status
+/starboard status
+
+PUBLIC ECONOMY
+
+/economy balance
+/economy daily
+/economy work
+/economy pay
+/economy leaderboard
+
+Prefix alternatives:
+;balance
+;daily
+;work
+;pay @member amount
+;rich
+;counting
+;starboard
+
+STAFF CONTROLS
+
+/community economy-manage
+/community counting-reset
+/community counting-disable
+/community starboard-disable
+
+COUNTING RULES
+
+Only the next whole number is accepted.
+The same member cannot count twice in a row.
+Invalid messages can be deleted automatically.
+A mistake can reset the current count while preserving the high score.
+
+STARBOARD RULES
+
+HIT counts only the configured reaction.
+Bot reactions are ignored.
+Self-reactions are ignored unless explicitly enabled.
+Posts are created when the threshold is reached, updated as the count changes,
+and removed if the count drops below the threshold.
+The configured reaction is functional; HIT does not add decorative emojis to messages.

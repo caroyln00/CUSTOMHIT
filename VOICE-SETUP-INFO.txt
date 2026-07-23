@@ -1,0 +1,44 @@
+HIT MULTI JOIN-TO-CREATE VOICE SETUP
+
+The active Join-to-Create voice channel IDs are:
+
+1528860389323051160
+1528858835358584913
+1528863063862939720
+
+Each lobby must be inside the category where its temporary rooms should be created.
+
+Required HIT permissions:
+
+Manage Channels
+Move Members
+View Channels
+Connect
+Send Messages
+Embed Links
+
+HIT uses the configured voice log channel when available and otherwise looks for a text channel named transcripts.
+
+Check the system with:
+
+/hit voice-config
+/hit voice-diagnose
+
+Test every lobby with an alternate account. HIT should create a room in that lobby's parent category, move the member into it, and delete the room after it becomes empty.
+
+OWNER COMMANDS
+
+/voice status
+/voice rename
+/voice limit
+/voice lock
+/voice unlock
+/voice hide
+/voice show
+/voice permit
+/voice reject
+/voice transfer
+/voice claim
+/voice close
+
+Prefix equivalents use ;voice or ;vc.

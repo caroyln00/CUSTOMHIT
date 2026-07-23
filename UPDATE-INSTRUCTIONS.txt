@@ -1,0 +1,23 @@
+HIT v0.6.1 MULTI JOIN-TO-CREATE HOTFIX
+
+Exact Join-to-Create IDs:
+1528860389323051160
+1528858835358584913
+1528863063862939720
+
+Behavior:
+- All three IDs work as Join-to-Create voice lobbies.
+- Each lobby creates rooms inside its own current parent category.
+- Default room limit is unlimited unless /hit voice-setup previously set another default.
+- Logs use the configured voice log channel, or a text channel named transcripts.
+- One member can own one temporary room at a time across all lobbies.
+
+Install:
+1. Stop HIT with Ctrl+C.
+2. Copy the src folder into the main HIT folder.
+3. Replace the destination file.
+4. Run install-and-check.bat.
+5. Run npm start.
+6. Run /hit voice-diagnose and /hit voice-config.
+
+No command registration is required.

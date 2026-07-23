@@ -1,0 +1,603 @@
+import { randomInt } from 'node:crypto';
+import {
+  ChannelType,
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+  Guild,
+  GuildMember,
+  Message,
+  MessageFlags,
+  MessageReaction,
+  PartialMessage,
+  PermissionFlagsBits,
+  User,
+} from 'discord.js';
+import {
+  CommunitySettings,
+  EconomyAccount,
+  StarboardRecord,
+  Store,
+} from '../../core/store.js';
+import { logger } from '../../core/logger.js';
+
+const COLOR = 0x7c3aed;
+const SUCCESS = 0x22c55e;
+const FAILURE = 0xef4444;
+const WARNING = 0xf59e0b;
+const PREFIX_DELETE_MS = 15_000;
+const COUNT_NOTICE_MS = 5_000;
+
+function requireGuild(interaction: ChatInputCommandInteraction): Guild {
+  if (!interaction.guild) throw new Error('This command can only be used in a server.');
+  return interaction.guild;
+}
+
+function requireSettings(store: Store, guildId: string): CommunitySettings {
+  const settings = store.getCommunitySettings(guildId);
+  if (!settings) throw new Error('HIT community systems are not configured. Run /community setup.');
+  return settings;
+}
+
+function settingsInput(settings: CommunitySettings): Omit<CommunitySettings, 'updatedAt'> {
+  const { updatedAt: _updatedAt, ...input } = settings;
+  return input;
+}
+
+function requireManageGuild(member: GuildMember | null): void {
+  if (!member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    throw new Error('You need Manage Server to use this action.');
+  }
+}
+
+function formatAmount(value: number, settings: CommunitySettings): string {
+  return `${new Intl.NumberFormat('en-US').format(value)} ${settings.currencyName}`;
+}
+
+function unix(value: number): number {
+  return Math.floor(value / 1000);
+}
+
+function normalizeEmoji(value: string): string {
+  const trimmed = value.trim();
+  const custom = trimmed.match(/^<a?:[^:]+:(\d+)>$/);
+  if (custom?.[1]) return custom[1];
+  return trimmed;
+}
+
+function reactionKey(reaction: MessageReaction): string {
+  return reaction.emoji.id ?? reaction.emoji.name ?? '';
+}
+
+function deleteLater(message: Message, delay = PREFIX_DELETE_MS): void {
+  const timer = setTimeout(() => void message.delete().catch(() => undefined), delay);
+  timer.unref();
+}
+
+async function fetchTextChannel(guild: Guild, channelId: string | null) {
+  if (!channelId) return null;
+  const channel = await guild.channels.fetch(channelId).catch(() => null);
+  if (!channel) return null;
+  if (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildAnnouncement) return null;
+  return channel;
+}
+
+async function sendLog(
+  guild: Guild,
+  settings: CommunitySettings,
+  title: string,
+  description: string,
+  color = COLOR,
+): Promise<void> {
+  const channel = await fetchTextChannel(guild, settings.logChannelId);
+  if (!channel) return;
+  await channel.send({
+    embeds: [new EmbedBuilder().setColor(color).setTitle(title).setDescription(description).setTimestamp()],
+  }).catch(() => undefined);
+}
+
+function accountEmbed(
+  user: User,
+  account: EconomyAccount,
+  settings: CommunitySettings,
+  rank: number | null,
+): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setAuthor({ name: user.username, iconURL: user.displayAvatarURL() })
+    .setTitle('ECONOMY BALANCE')
+    .addFields(
+      { name: 'Balance', value: formatAmount(account.balance, settings), inline: true },
+      { name: 'Server rank', value: rank ? `#${rank}` : 'Unranked', inline: true },
+    );
+}
+
+function communityConfigEmbed(settings: CommunitySettings, store: Store): EmbedBuilder {
+  const state = store.getCountingState(settings.guildId);
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle('HIT COMMUNITY CONFIGURATION')
+    .addFields(
+      { name: 'Currency', value: settings.currencyName, inline: true },
+      { name: 'Starting balance', value: String(settings.startingBalance), inline: true },
+      { name: 'Daily reward', value: `${settings.dailyReward} every ${settings.dailyCooldownHours}h`, inline: true },
+      { name: 'Work reward', value: `${settings.workMin}-${settings.workMax} every ${settings.workCooldownMinutes}m`, inline: true },
+      { name: 'Counting channel', value: settings.countingChannelId ? `<#${settings.countingChannelId}>` : 'Disabled', inline: true },
+      { name: 'Current count', value: `${state.currentNumber} (high score ${state.highScore})`, inline: true },
+      { name: 'Reset on mistake', value: settings.countingResetOnMistake ? 'Enabled' : 'Disabled', inline: true },
+      { name: 'Delete invalid counts', value: settings.countingDeleteInvalid ? 'Enabled' : 'Disabled', inline: true },
+      { name: 'Starboard channel', value: settings.starboardChannelId ? `<#${settings.starboardChannelId}>` : 'Disabled', inline: true },
+      { name: 'Star threshold', value: String(settings.starThreshold), inline: true },
+      { name: 'Star reaction', value: settings.starEmoji, inline: true },
+      { name: 'Self-stars', value: settings.allowSelfStar ? 'Allowed' : 'Ignored', inline: true },
+      { name: 'Log channel', value: `<#${settings.logChannelId}>`, inline: true },
+    );
+}
+
+async function setupCommunity(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  requireManageGuild(interaction.member as GuildMember | null);
+  const existing = store.getCommunitySettings(guild.id);
+  const logChannel = interaction.options.getChannel('log_channel', true);
+  const countingChannel = interaction.options.getChannel('counting_channel');
+  const starboardChannel = interaction.options.getChannel('starboard_channel');
+  const workMin = interaction.options.getInteger('work_min') ?? existing?.workMin ?? 50;
+  const workMax = interaction.options.getInteger('work_max') ?? existing?.workMax ?? 150;
+  if (workMin > workMax) throw new Error('Work minimum cannot exceed work maximum.');
+  if (countingChannel && starboardChannel && countingChannel.id === starboardChannel.id) {
+    throw new Error('Counting and starboard must use different channels.');
+  }
+  const emoji = interaction.options.getString('star_emoji')?.trim() || existing?.starEmoji || '⭐';
+  if (!normalizeEmoji(emoji)) throw new Error('Star reaction cannot be empty.');
+  const settings = store.upsertCommunitySettings({
+    guildId: guild.id,
+    logChannelId: logChannel.id,
+    currencyName: interaction.options.getString('currency_name')?.trim() || existing?.currencyName || 'credits',
+    startingBalance: interaction.options.getInteger('starting_balance') ?? existing?.startingBalance ?? 0,
+    dailyReward: interaction.options.getInteger('daily_reward') ?? existing?.dailyReward ?? 250,
+    dailyCooldownHours: interaction.options.getInteger('daily_cooldown_hours') ?? existing?.dailyCooldownHours ?? 24,
+    workMin,
+    workMax,
+    workCooldownMinutes: interaction.options.getInteger('work_cooldown_minutes') ?? existing?.workCooldownMinutes ?? 60,
+    countingChannelId: countingChannel?.id ?? existing?.countingChannelId ?? null,
+    countingResetOnMistake: interaction.options.getBoolean('counting_reset_on_mistake') ?? existing?.countingResetOnMistake ?? true,
+    countingDeleteInvalid: interaction.options.getBoolean('counting_delete_invalid') ?? existing?.countingDeleteInvalid ?? true,
+    starboardChannelId: starboardChannel?.id ?? existing?.starboardChannelId ?? null,
+    starThreshold: interaction.options.getInteger('star_threshold') ?? existing?.starThreshold ?? 3,
+    starEmoji: emoji,
+    allowSelfStar: interaction.options.getBoolean('allow_self_star') ?? existing?.allowSelfStar ?? false,
+  });
+  await interaction.reply({ content: 'HIT economy, counting, and starboard are configured.', flags: MessageFlags.Ephemeral });
+  await sendLog(guild, settings, 'COMMUNITY SYSTEMS CONFIGURED', `Configured by <@${interaction.user.id}>.`, SUCCESS);
+}
+
+async function diagnoseCommunity(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  requireManageGuild(interaction.member as GuildMember | null);
+  const settings = requireSettings(store, guild.id);
+  const me = guild.members.me ?? await guild.members.fetchMe();
+  const checks: Array<{ name: string; pass: boolean; detail: string }> = [];
+  const logChannel = await fetchTextChannel(guild, settings.logChannelId);
+  checks.push({ name: 'Log channel', pass: Boolean(logChannel), detail: 'Configured log channel must exist.' });
+  checks.push({
+    name: 'Log send access',
+    pass: Boolean(logChannel?.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])),
+    detail: 'HIT must view, send, and embed logs.',
+  });
+  if (settings.countingChannelId) {
+    const channel = await fetchTextChannel(guild, settings.countingChannelId);
+    checks.push({ name: 'Counting channel', pass: Boolean(channel), detail: 'Counting channel must be a text channel.' });
+    checks.push({
+      name: 'Counting access',
+      pass: Boolean(channel?.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages])),
+      detail: 'HIT must read, send, and delete invalid counts.',
+    });
+  }
+  if (settings.starboardChannelId) {
+    const channel = await fetchTextChannel(guild, settings.starboardChannelId);
+    checks.push({ name: 'Starboard channel', pass: Boolean(channel), detail: 'Starboard channel must be a text channel.' });
+    checks.push({
+      name: 'Starboard access',
+      pass: Boolean(channel?.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages])),
+      detail: 'HIT must send, edit, and remove starboard posts.',
+    });
+  }
+  const lines = checks.map((check) => `${check.pass ? 'PASS' : 'FAIL'} ${check.name} — ${check.detail}`);
+  const pass = checks.every((check) => check.pass);
+  await interaction.reply({
+    embeds: [new EmbedBuilder().setColor(pass ? SUCCESS : FAILURE).setTitle('HIT COMMUNITY DIAGNOSTICS').setDescription(lines.join('\n'))],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function economySlash(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  const settings = requireSettings(store, guild.id);
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === 'balance') {
+    const user = interaction.options.getUser('user') ?? interaction.user;
+    if (user.bot) throw new Error('Bot accounts do not use the economy.');
+    const account = store.getOrCreateEconomyAccount(guild.id, user.id, settings.startingBalance);
+    await interaction.reply({ embeds: [accountEmbed(user, account, settings, store.getEconomyRank(guild.id, user.id))], flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (subcommand === 'daily') {
+    const result = store.claimEconomyDaily(guild.id, interaction.user.id, settings.startingBalance, settings.dailyReward, settings.dailyCooldownHours);
+    if (!result.claimed) {
+      await interaction.reply({ content: `Your daily reward is available <t:${unix(result.nextAt ?? Date.now())}:R>.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.reply({ content: `You claimed ${formatAmount(result.amount, settings)}. Balance: ${formatAmount(result.account.balance, settings)}.`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (subcommand === 'work') {
+    const amount = randomInt(settings.workMin, settings.workMax + 1);
+    const result = store.claimEconomyWork(guild.id, interaction.user.id, settings.startingBalance, amount, settings.workCooldownMinutes);
+    if (!result.claimed) {
+      await interaction.reply({ content: `You can work again <t:${unix(result.nextAt ?? Date.now())}:R>.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.reply({ content: `You earned ${formatAmount(result.amount, settings)}. Balance: ${formatAmount(result.account.balance, settings)}.`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (subcommand === 'pay') {
+    const user = interaction.options.getUser('user', true);
+    const amount = interaction.options.getInteger('amount', true);
+    if (user.bot) throw new Error('You cannot pay a bot account.');
+    if (user.id === interaction.user.id) throw new Error('You cannot pay yourself.');
+    const result = store.transferEconomy(guild.id, interaction.user.id, user.id, amount, settings.startingBalance);
+    if (!result) throw new Error('Transfer failed. Check your balance and amount.');
+    await interaction.reply({ content: `Paid <@${user.id}> ${formatAmount(amount, settings)}. New balance: ${formatAmount(result.sender.balance, settings)}.`, flags: MessageFlags.Ephemeral, allowedMentions: { users: [] } });
+    await sendLog(guild, settings, 'ECONOMY TRANSFER', `<@${interaction.user.id}> paid <@${user.id}> ${formatAmount(amount, settings)}.`);
+    return;
+  }
+  const page = interaction.options.getInteger('page') ?? 1;
+  const accounts = store.listEconomyLeaderboard(guild.id, 10, (page - 1) * 10);
+  const lines = accounts.length > 0
+    ? accounts.map((account, index) => `${(page - 1) * 10 + index + 1}. <@${account.userId}> — ${formatAmount(account.balance, settings)}`)
+    : ['No economy accounts are ranked yet.'];
+  await interaction.reply({
+    embeds: [new EmbedBuilder().setColor(COLOR).setTitle('ECONOMY LEADERBOARD').setDescription(lines.join('\n')).setFooter({ text: `Page ${page}` })],
+  });
+}
+
+async function communityAdminSlash(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === 'setup') {
+    await setupCommunity(interaction, store);
+    return;
+  }
+  if (subcommand === 'diagnose') {
+    await diagnoseCommunity(interaction, store);
+    return;
+  }
+  requireManageGuild(interaction.member as GuildMember | null);
+  const settings = requireSettings(store, guild.id);
+  if (subcommand === 'config') {
+    await interaction.reply({ embeds: [communityConfigEmbed(settings, store)], flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (subcommand === 'counting-reset') {
+    const state = store.resetCountingState(guild.id);
+    await interaction.reply({ content: `Counting was reset to 0. High score: ${state.highScore}.`, flags: MessageFlags.Ephemeral });
+    await sendLog(guild, settings, 'COUNTING RESET', `Reset by <@${interaction.user.id}>. High score: ${state.highScore}.`, WARNING);
+    return;
+  }
+  if (subcommand === 'counting-disable') {
+    store.upsertCommunitySettings({ ...settingsInput(settings), countingChannelId: null });
+    await interaction.reply({ content: 'Counting is disabled. The saved high score was preserved.', flags: MessageFlags.Ephemeral });
+    await sendLog(guild, settings, 'COUNTING DISABLED', `Disabled by <@${interaction.user.id}>.`, WARNING);
+    return;
+  }
+  if (subcommand === 'starboard-disable') {
+    store.upsertCommunitySettings({ ...settingsInput(settings), starboardChannelId: null });
+    await interaction.reply({ content: 'Starboard processing is disabled. Existing starboard posts were not deleted.', flags: MessageFlags.Ephemeral });
+    await sendLog(guild, settings, 'STARBOARD DISABLED', `Disabled by <@${interaction.user.id}>.`, WARNING);
+    return;
+  }
+  const action = interaction.options.getString('action', true) as 'add' | 'remove' | 'set';
+  const user = interaction.options.getUser('user', true);
+  const amount = interaction.options.getInteger('amount', true);
+  if (user.bot) throw new Error('Bot accounts do not use the economy.');
+  const account = store.adjustEconomyBalance(guild.id, user.id, interaction.user.id, action, amount, settings.startingBalance);
+  await interaction.reply({ content: `<@${user.id}>'s balance is now ${formatAmount(account.balance, settings)}.`, flags: MessageFlags.Ephemeral, allowedMentions: { users: [] } });
+  await sendLog(guild, settings, 'ECONOMY ADMINISTRATION', `${action.toUpperCase()} by <@${interaction.user.id}> for <@${user.id}>. Amount: ${amount}. Balance: ${account.balance}.`, WARNING);
+}
+
+async function countingSlash(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  const settings = requireSettings(store, guild.id);
+  const state = store.getCountingState(guild.id);
+  await interaction.reply({
+    embeds: [new EmbedBuilder().setColor(COLOR).setTitle('COUNTING STATUS').addFields(
+      { name: 'Channel', value: settings.countingChannelId ? `<#${settings.countingChannelId}>` : 'Disabled', inline: true },
+      { name: 'Current number', value: String(state.currentNumber), inline: true },
+      { name: 'Next number', value: String(state.currentNumber + 1), inline: true },
+      { name: 'High score', value: String(state.highScore), inline: true },
+      { name: 'Last counter', value: state.lastUserId ? `<@${state.lastUserId}>` : 'None', inline: true },
+    )],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function starboardSlash(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  const guild = requireGuild(interaction);
+  const settings = requireSettings(store, guild.id);
+  await interaction.reply({
+    embeds: [new EmbedBuilder().setColor(COLOR).setTitle('STARBOARD STATUS').addFields(
+      { name: 'Channel', value: settings.starboardChannelId ? `<#${settings.starboardChannelId}>` : 'Disabled', inline: true },
+      { name: 'Threshold', value: String(settings.starThreshold), inline: true },
+      { name: 'Reaction', value: settings.starEmoji, inline: true },
+      { name: 'Self-stars', value: settings.allowSelfStar ? 'Allowed' : 'Ignored', inline: true },
+    )],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function sendCountNotice(message: Message, content: string): Promise<void> {
+  const notice = await message.channel.send({ content, allowedMentions: { users: [] } }).catch(() => null);
+  if (notice) deleteLater(notice, COUNT_NOTICE_MS);
+}
+
+export async function handleCommunityMessage(message: Message, store: Store): Promise<boolean> {
+  if (!message.guild || message.author.bot || message.webhookId) return false;
+  const settings = store.getCommunitySettings(message.guild.id);
+  if (!settings?.countingChannelId || message.channelId !== settings.countingChannelId) return false;
+  const content = message.content.trim();
+  const validInteger = /^\d+$/.test(content);
+  const number = validInteger ? Number(content) : Number.NaN;
+  if (!validInteger || !Number.isSafeInteger(number) || number < 1) {
+    const before = store.getCountingState(message.guild.id);
+    const reset = settings.countingResetOnMistake && before.currentNumber > 0
+      ? store.resetCountingState(message.guild.id)
+      : null;
+    if (settings.countingDeleteInvalid) await message.delete().catch(() => undefined);
+    await sendCountNotice(message, reset
+      ? 'Only whole numbers are allowed. The count reset to 0. Start again with 1.'
+      : 'Only the next whole number may be posted in this channel.');
+    if (reset) {
+      await sendLog(message.guild, settings, 'COUNTING RESET', `A non-number message by <@${message.author.id}> reset the count. High score: ${reset.highScore}.`, WARNING);
+    }
+    return true;
+  }
+  const result = store.processCount(message.guild.id, message.author.id, number, settings.countingResetOnMistake, Date.now(), message.id);
+  if (result.status === 'accepted') return true;
+  if (settings.countingDeleteInvalid) await message.delete().catch(() => undefined);
+  if (result.status === 'same_user') {
+    await sendCountNotice(message, `Wait for another member to count. The next number is ${result.expected}.`);
+    return true;
+  }
+  const contentText = result.reset
+    ? `Wrong number. The count reset to 0. Start again with 1.`
+    : `Wrong number. The next number is ${result.expected}.`;
+  await sendCountNotice(message, contentText);
+  if (result.reset) {
+    await sendLog(message.guild, settings, 'COUNTING RESET', `A mistake by <@${message.author.id}> reset the count. Expected: ${result.expected}.`, WARNING);
+  }
+  return true;
+}
+
+function starboardEmbed(message: Message, starCount: number): EmbedBuilder {
+  const description = message.content.trim() || 'No text content.';
+  const embed = new EmbedBuilder()
+    .setColor(COLOR)
+    .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+    .setDescription(description.slice(0, 4000))
+    .addFields(
+      { name: 'Source', value: `[Open message](${message.url})`, inline: true },
+      { name: 'Channel', value: `<#${message.channelId}>`, inline: true },
+      { name: 'Stars', value: String(starCount), inline: true },
+    )
+    .setTimestamp(message.createdAt);
+  const image = message.attachments.find((attachment: { contentType?: string | null; url: string }) => attachment.contentType?.startsWith('image/'));
+  if (image) embed.setImage(image.url);
+  return embed;
+}
+
+async function removeStarboardPost(guild: Guild, record: StarboardRecord, store: Store): Promise<void> {
+  const settings = store.getCommunitySettings(guild.id);
+  const channel = settings ? await fetchTextChannel(guild, settings.starboardChannelId) : null;
+  if (channel) {
+    const boardMessage = await channel.messages.fetch(record.starboardMessageId).catch(() => null);
+    if (boardMessage) await boardMessage.delete().catch(() => undefined);
+  }
+  store.deleteStarboardRecord(guild.id, record.sourceMessageId);
+  if (settings) {
+    await sendLog(guild, settings, 'STARBOARD POST REMOVED', `Source message: ${record.sourceMessageId}.`, WARNING);
+  }
+}
+
+export async function handleStarboardReaction(reaction: MessageReaction, store: Store): Promise<void> {
+  if (reaction.partial) await reaction.fetch().catch(() => null);
+  const fetchedMessage = reaction.message.partial
+    ? await reaction.message.fetch().catch(() => null)
+    : reaction.message;
+  if (!fetchedMessage || fetchedMessage.partial) return;
+  const message = fetchedMessage as Message;
+  if (!message.guild || message.author.bot) return;
+  const settings = store.getCommunitySettings(message.guild.id);
+  if (!settings?.starboardChannelId) return;
+  if (message.channelId === settings.starboardChannelId) return;
+  const sourceChannel = await message.guild.channels.fetch(message.channelId).catch(() => null);
+  if (!sourceChannel || !('permissionsFor' in sourceChannel)) return;
+  if (!sourceChannel.permissionsFor(message.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) return;
+  if ('nsfw' in sourceChannel && sourceChannel.nsfw === true) return;
+  if (reactionKey(reaction) !== normalizeEmoji(settings.starEmoji)) return;
+  const users = await reaction.users.fetch().catch(() => null);
+  if (!users) return;
+  const starCount = users.filter((user: User) => !user.bot && (settings.allowSelfStar || user.id !== message.author.id)).size;
+  const existing = store.getStarboardRecord(message.guild.id, message.id);
+  if (starCount < settings.starThreshold) {
+    if (existing) await removeStarboardPost(message.guild, existing, store);
+    return;
+  }
+  const channel = await fetchTextChannel(message.guild, settings.starboardChannelId);
+  if (!channel) return;
+  if (existing) {
+    const boardMessage = await channel.messages.fetch(existing.starboardMessageId).catch(() => null);
+    if (boardMessage) {
+      await boardMessage.edit({ embeds: [starboardEmbed(message, starCount)] }).catch(() => undefined);
+      store.upsertStarboardRecord({
+        guildId: message.guild.id,
+        sourceMessageId: message.id,
+        sourceChannelId: message.channelId,
+        starboardMessageId: existing.starboardMessageId,
+        authorId: message.author.id,
+        starCount,
+      });
+      return;
+    }
+    store.deleteStarboardRecord(message.guild.id, message.id);
+  }
+  const boardMessage = await channel.send({ embeds: [starboardEmbed(message, starCount)] });
+  store.upsertStarboardRecord({
+    guildId: message.guild.id,
+    sourceMessageId: message.id,
+    sourceChannelId: message.channelId,
+    starboardMessageId: boardMessage.id,
+    authorId: message.author.id,
+    starCount,
+  });
+  await sendLog(message.guild, settings, 'STARBOARD POST CREATED', `Source: ${message.url}\nAuthor: <@${message.author.id}>\nStars: ${starCount}.`, SUCCESS);
+}
+
+export async function handleStarboardReactionClear(
+  message: Message | PartialMessage,
+  store: Store,
+  emojiKey: string | null = null,
+): Promise<void> {
+  if (!message.guildId || !message.guild) return;
+  const settings = store.getCommunitySettings(message.guildId);
+  if (!settings?.starboardChannelId) return;
+  if (emojiKey !== null && emojiKey !== normalizeEmoji(settings.starEmoji)) return;
+  const record = store.getStarboardRecord(message.guildId, message.id);
+  if (record) await removeStarboardPost(message.guild, record, store);
+}
+
+export async function handleCommunityMessageDelete(message: Message | PartialMessage, store: Store): Promise<void> {
+  if (!message.guildId) return;
+  const settings = store.getCommunitySettings(message.guildId);
+  if (settings && settings.countingChannelId === message.channelId) {
+    const reset = store.resetCountingIfCurrentMessage(message.guildId, message.id);
+    if (reset && message.guild) {
+      await sendLog(message.guild, settings, 'COUNTING RESET', `The current counting message was deleted. High score: ${reset.highScore}.`, WARNING);
+    }
+  }
+  const sourceRecord = store.getStarboardRecord(message.guildId, message.id);
+  if (sourceRecord && message.guild) {
+    await removeStarboardPost(message.guild, sourceRecord, store);
+    return;
+  }
+  store.deleteStarboardRecordByBoardMessage(message.id);
+}
+
+export async function handleCommunityMessageUpdate(message: Message | PartialMessage, store: Store): Promise<void> {
+  if (!message.guildId) return;
+  const settings = store.getCommunitySettings(message.guildId);
+  if (!settings?.countingChannelId || message.channelId !== settings.countingChannelId) return;
+  const state = store.getCountingState(message.guildId);
+  if (state.currentMessageId !== message.id) return;
+  const fetched = message.partial ? await message.fetch().catch(() => null) : message;
+  if (!fetched || fetched.partial || fetched.content.trim() === String(state.currentNumber)) return;
+  await fetched.delete().catch(() => undefined);
+  const reset = store.resetCountingIfCurrentMessage(message.guildId, message.id);
+  if (reset && fetched.guild) {
+    await sendCountNotice(fetched, 'Edited counts are not allowed. The count reset to 0. Start again with 1.');
+    await sendLog(fetched.guild, settings, 'COUNTING RESET', `The current counting message was edited. High score: ${reset.highScore}.`, WARNING);
+  }
+}
+
+function prefixTarget(message: Message, token: string | undefined): User | null {
+  if (!token) return null;
+  const match = token.match(/^<@!?(\d+)>$/);
+  if (!match?.[1]) return null;
+  return message.client.users.cache.get(match[1]) ?? null;
+}
+
+async function prefixReply(message: Message, content: string): Promise<void> {
+  const reply = await message.reply({ content, allowedMentions: { repliedUser: false, users: [] } });
+  deleteLater(reply);
+  deleteLater(message);
+}
+
+export async function handleCommunityPrefixCommand(message: Message, store: Store, defaultPrefix: string): Promise<void> {
+  if (!message.guild || message.author.bot || !message.content.startsWith(defaultPrefix)) return;
+  const tokens = message.content.slice(defaultPrefix.length).trim().split(/\s+/);
+  const command = tokens.shift()?.toLowerCase();
+  if (!command || !['balance', 'bal', 'daily', 'work', 'pay', 'rich', 'counting', 'starboard', 'economy'].includes(command)) return;
+  const settings = requireSettings(store, message.guild.id);
+  if (command === 'economy') {
+    await prefixReply(message, `${defaultPrefix}balance [@user]\n${defaultPrefix}daily\n${defaultPrefix}work\n${defaultPrefix}pay @user amount\n${defaultPrefix}rich`);
+    return;
+  }
+  if (command === 'balance' || command === 'bal') {
+    const user = prefixTarget(message, tokens[0]) ?? message.author;
+    const account = store.getOrCreateEconomyAccount(message.guild.id, user.id, settings.startingBalance);
+    await prefixReply(message, `${user.username}: ${formatAmount(account.balance, settings)}.`);
+    return;
+  }
+  if (command === 'daily') {
+    const result = store.claimEconomyDaily(message.guild.id, message.author.id, settings.startingBalance, settings.dailyReward, settings.dailyCooldownHours);
+    await prefixReply(message, result.claimed
+      ? `Claimed ${formatAmount(result.amount, settings)}. Balance: ${formatAmount(result.account.balance, settings)}.`
+      : `Daily reward available <t:${unix(result.nextAt ?? Date.now())}:R>.`);
+    return;
+  }
+  if (command === 'work') {
+    const amount = randomInt(settings.workMin, settings.workMax + 1);
+    const result = store.claimEconomyWork(message.guild.id, message.author.id, settings.startingBalance, amount, settings.workCooldownMinutes);
+    await prefixReply(message, result.claimed
+      ? `Earned ${formatAmount(result.amount, settings)}. Balance: ${formatAmount(result.account.balance, settings)}.`
+      : `You can work again <t:${unix(result.nextAt ?? Date.now())}:R>.`);
+    return;
+  }
+  if (command === 'pay') {
+    const user = prefixTarget(message, tokens[0]);
+    const amount = Number(tokens[1]);
+    if (!user || user.bot || user.id === message.author.id || !Number.isSafeInteger(amount) || amount <= 0) {
+      throw new Error(`Usage: ${defaultPrefix}pay @user amount`);
+    }
+    const result = store.transferEconomy(message.guild.id, message.author.id, user.id, amount, settings.startingBalance);
+    if (!result) throw new Error('Transfer failed. Check your balance and amount.');
+    await prefixReply(message, `Paid ${user.username} ${formatAmount(amount, settings)}. Balance: ${formatAmount(result.sender.balance, settings)}.`);
+    return;
+  }
+  if (command === 'rich') {
+    const accounts = store.listEconomyLeaderboard(message.guild.id, 10, 0);
+    const text = accounts.length > 0
+      ? accounts.map((account, index) => `${index + 1}. <@${account.userId}> — ${formatAmount(account.balance, settings)}`).join('\n')
+      : 'No economy accounts are ranked yet.';
+    await prefixReply(message, text);
+    return;
+  }
+  if (command === 'counting') {
+    const state = store.getCountingState(message.guild.id);
+    await prefixReply(message, `Current: ${state.currentNumber}. Next: ${state.currentNumber + 1}. High score: ${state.highScore}.`);
+    return;
+  }
+  await prefixReply(message, settings.starboardChannelId
+    ? `Starboard: <#${settings.starboardChannelId}>. Threshold: ${settings.starThreshold}. Reaction: ${settings.starEmoji}.`
+    : 'Starboard is disabled.');
+}
+
+export async function handleCommunitySlashCommand(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  if (interaction.commandName === 'community') {
+    await communityAdminSlash(interaction, store);
+    return;
+  }
+  if (interaction.commandName === 'economy') {
+    await economySlash(interaction, store);
+    return;
+  }
+  if (interaction.commandName === 'counting') {
+    await countingSlash(interaction, store);
+    return;
+  }
+  if (interaction.commandName === 'starboard') {
+    await starboardSlash(interaction, store);
+  }
+}
+
+export function logCommunityError(context: string, error: unknown): void {
+  logger.error(context, { error: String(error) });
+}

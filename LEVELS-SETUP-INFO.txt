@@ -1,0 +1,40 @@
+HIT LEVELS AND XP SETUP
+
+Recommended first configuration:
+
+/hit levels-setup
+
+Log channel: #transcripts
+Announcement channel: choose your public notifications or general channel
+Message XP minimum: 15
+Message XP maximum: 25
+Message cooldown: 60 seconds
+Voice XP per minute: 10
+Voice minimum members: 2
+Announce level ups: True
+Stack reward roles: True
+
+Then run:
+
+/hit levels-diagnose
+/hit levels-config
+
+Public commands:
+
+/level rank
+/level leaderboard
+/level rewards
+
+;rank
+;rank @user
+;leaderboard
+;levels rewards
+
+Administration:
+
+/hit levels-manage action:add-reward level:5 role:@Level 5
+/hit levels-manage action:exclude-channel channel:#commands
+/hit levels-manage action:exclude-role role:@Bots
+/hit levels-manage action:add-xp user:@member amount:100
+
+HIT does not award message XP to commands, bots, webhooks, link-only messages, excluded channels/categories, or excluded roles. Voice XP requires active, non-deafened members and is not awarded in the AFK channel.

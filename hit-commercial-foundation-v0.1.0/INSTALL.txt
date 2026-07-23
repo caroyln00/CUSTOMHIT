@@ -1,0 +1,20 @@
+HIT v0.8.2 EXISTING EVENT REFRESH HOTFIX
+
+This hotfix changes event labels to:
+- Attending
+- Maybe
+- Not Attending
+
+It also refreshes every currently scheduled event message when HIT starts, so old event posts update without being recreated.
+
+INSTALL
+1. Stop HIT with Ctrl+C.
+2. Extract this ZIP.
+3. Copy the src folder into your main HIT folder.
+4. Choose Replace the files in the destination.
+5. Run install-and-check.bat.
+6. Run taskkill /F /IM node.exe to close old Node processes.
+7. Run npm start from the main HIT folder.
+8. Wait about 5 seconds and reopen the event post.
+
+No command registration is required.

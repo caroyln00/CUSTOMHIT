@@ -1,0 +1,12 @@
+HIT v0.3.1 Moderation Syntax Hotfix
+
+Fixes TypeScript TS1127 Invalid character at:
+src/modules/verification/service.ts:367
+
+INSTALL
+1. Stop HIT with Ctrl+C.
+2. Copy the src folder from this hotfix into your main HIT folder.
+3. Choose Replace the files in the destination.
+4. Do not replace or delete .env or data.
+5. Run install-and-check.bat.
+6. After checks pass, run npm run register and npm start.
