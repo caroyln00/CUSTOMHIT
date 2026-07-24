@@ -138,7 +138,7 @@ function securityConfigEmbed(settings: SecuritySettings, trustedUsers: string[])
 function securityStatusEmbed(store: Store, settings: SecuritySettings): EmbedBuilder {
   const lockdown = store.getSecurityLockdown(settings.guildId);
   const lockdownText = lockdown?.active
-    ? `ACTIVE â€” ${lockdown.expiresAt ? `<t:${Math.floor(lockdown.expiresAt / 1000)}:R>` : 'manual unlock required'}\nReason: ${lockdown.reason}`
+    ? `ACTIVE Ã¢â‚¬â€ ${lockdown.expiresAt ? `<t:${Math.floor(lockdown.expiresAt / 1000)}:R>` : 'manual unlock required'}\nReason: ${lockdown.reason}`
     : 'Inactive';
   return securityConfigEmbed(settings, store.listSecurityTrustedUsers(settings.guildId))
     .setTitle('HIT SECURITY STATUS')
@@ -728,7 +728,7 @@ export async function handleHitSecurityAdminCommand(
       lockdownMinutes: existing?.lockdownMinutes ?? 10,
     });
     await interaction.reply({
-      content: `âœ“ HIT security configured in <#${settings.logChannelId}>. Trust staff with \`/security trust\` before bulk server changes.`,
+      content: `Ã¢Å“â€œ HIT security configured in <#${settings.logChannelId}>. Trust staff with \`/security trust\` before bulk server changes.`,
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -758,13 +758,28 @@ export async function handleHitSecurityAdminCommand(
   const embed = new EmbedBuilder()
     .setColor(diagnostics.every((item) => item[1]) ? SUCCESS : DANGER)
     .setTitle('HIT SECURITY DIAGNOSTICS')
-    .setDescription(diagnostics.map(([label, ok, detail]) => `${ok ? 'âœ…' : 'âŒ'} **${label}** â€” ${detail}`).join('\n'));
+    .setDescription(diagnostics.map(([label, ok, detail]) => `${ok ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} **${label}** Ã¢â‚¬â€ ${detail}`).join('\n'));
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   return true;
 }
 
 const ACCESS_AUDIT_DEVELOPER_ROLE_ID = '1528836649633448118';
 const ACCESS_AUDIT_BOOSTER_ROLE_ID = '1529634264646422668';
+const ACCESS_AUDIT_APP_ROLE_ID = '1529692932938928140';
+const ACCESS_AUDIT_CAPTCHA_ROLE_ID = '1529884177518956557';
+
+const ACCESS_AUDIT_WRITE_ALLOWED_ROLE_IDS = new Set([
+  ACCESS_AUDIT_DEVELOPER_ROLE_ID,
+  ACCESS_AUDIT_APP_ROLE_ID,
+  ACCESS_AUDIT_CAPTCHA_ROLE_ID,
+]);
+
+const ACCESS_AUDIT_VIEW_ALLOWED_ROLE_IDS = new Set([
+  ACCESS_AUDIT_BOOSTER_ROLE_ID,
+  ACCESS_AUDIT_DEVELOPER_ROLE_ID,
+  ACCESS_AUDIT_APP_ROLE_ID,
+  ACCESS_AUDIT_CAPTCHA_ROLE_ID,
+]);
 
 const ACCESS_AUDIT_WRITE_CHANNEL_IDS = [
   '1528850967590731986',
@@ -804,6 +819,155 @@ function formatAccessAuditLines(lines: string[]): string {
   return `${value.slice(0, 960)}\n...additional results omitted`;
 }
 
+const ACCESS_POLICY_WRITE_ALLOW: PermissionOverwriteOptions = {
+  SendMessages: true,
+  SendMessagesInThreads: true,
+  CreatePublicThreads: true,
+  CreatePrivateThreads: true,
+  SendVoiceMessages: true,
+  SendPolls: true,
+};
+
+const ACCESS_POLICY_WRITE_DENY: PermissionOverwriteOptions = {
+  SendMessages: false,
+  SendMessagesInThreads: false,
+  CreatePublicThreads: false,
+  CreatePrivateThreads: false,
+  SendVoiceMessages: false,
+  SendPolls: false,
+};
+
+const ACCESS_POLICY_WRITE_CLEAR: PermissionOverwriteOptions = {
+  SendMessages: null,
+  SendMessagesInThreads: null,
+  CreatePublicThreads: null,
+  CreatePrivateThreads: null,
+  SendVoiceMessages: null,
+  SendPolls: null,
+};
+
+async function applyRestrictedAccessPolicy(
+  guild: Guild,
+  actorId: string,
+): Promise<{ changed: number; failed: string[] }> {
+  await Promise.all([
+    guild.roles.fetch(),
+    guild.channels.fetch(),
+  ]);
+
+  const reason = `HIT restricted-channel access fix by ${actorId}`;
+  const failed: string[] = [];
+  let changed = 0;
+
+  for (const channelId of ACCESS_AUDIT_WRITE_CHANNEL_IDS) {
+    const channel = guild.channels.cache.get(channelId);
+
+    if (!channel || !('permissionOverwrites' in channel)) {
+      failed.push(`${channelId}: channel missing or unsupported`);
+      continue;
+    }
+
+    try {
+      await channel.permissionOverwrites.edit(
+        guild.roles.everyone.id,
+        ACCESS_POLICY_WRITE_DENY,
+        { reason },
+      );
+
+      for (const roleId of ACCESS_AUDIT_WRITE_ALLOWED_ROLE_IDS) {
+        await channel.permissionOverwrites.edit(
+          roleId,
+          ACCESS_POLICY_WRITE_ALLOW,
+          { reason },
+        );
+      }
+
+      for (const overwrite of [
+        ...channel.permissionOverwrites.cache.values(),
+      ]) {
+        if (
+          overwrite.id === guild.roles.everyone.id ||
+          ACCESS_AUDIT_WRITE_ALLOWED_ROLE_IDS.has(overwrite.id)
+        ) {
+          continue;
+        }
+
+        if (
+          ACCESS_AUDIT_WRITE_FLAGS.some(
+            (flag) => overwrite.allow.has(flag) || overwrite.deny.has(flag),
+          )
+        ) {
+          await channel.permissionOverwrites.edit(
+            overwrite.id,
+            ACCESS_POLICY_WRITE_CLEAR,
+            { reason },
+          );
+        }
+      }
+
+      changed += 1;
+    } catch (error) {
+      failed.push(
+        `${channelId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  for (const channelId of ACCESS_AUDIT_BOOSTER_CHANNEL_IDS) {
+    const channel = guild.channels.cache.get(channelId);
+
+    if (!channel || !('permissionOverwrites' in channel)) {
+      failed.push(`${channelId}: channel missing or unsupported`);
+      continue;
+    }
+
+    try {
+      await channel.permissionOverwrites.edit(
+        guild.roles.everyone.id,
+        { ViewChannel: false },
+        { reason },
+      );
+
+      for (const roleId of ACCESS_AUDIT_VIEW_ALLOWED_ROLE_IDS) {
+        await channel.permissionOverwrites.edit(
+          roleId,
+          { ViewChannel: true },
+          { reason },
+        );
+      }
+
+      for (const overwrite of [
+        ...channel.permissionOverwrites.cache.values(),
+      ]) {
+        if (
+          overwrite.id === guild.roles.everyone.id ||
+          ACCESS_AUDIT_VIEW_ALLOWED_ROLE_IDS.has(overwrite.id)
+        ) {
+          continue;
+        }
+
+        if (
+          overwrite.allow.has(PermissionFlagsBits.ViewChannel) ||
+          overwrite.deny.has(PermissionFlagsBits.ViewChannel)
+        ) {
+          await channel.permissionOverwrites.edit(
+            overwrite.id,
+            { ViewChannel: null },
+            { reason },
+          );
+        }
+      }
+
+      changed += 1;
+    } catch (error) {
+      failed.push(
+        `${channelId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  return { changed, failed };
+}
 async function createAccessAuditEmbed(guild: Guild): Promise<EmbedBuilder> {
   await Promise.all([
     guild.roles.fetch(),
@@ -832,7 +996,7 @@ async function createAccessAuditEmbed(guild: Guild): Promise<EmbedBuilder> {
     }
 
     const unauthorizedRoles = roles.filter((role) => {
-      if (role.id === ACCESS_AUDIT_DEVELOPER_ROLE_ID) return false;
+      if (ACCESS_AUDIT_WRITE_ALLOWED_ROLE_IDS.has(role.id)) return false;
 
       const permissions = channel.permissionsFor(role);
       return ACCESS_AUDIT_WRITE_FLAGS.some((flag) => permissions?.has(flag));
@@ -885,7 +1049,7 @@ async function createAccessAuditEmbed(guild: Guild): Promise<EmbedBuilder> {
     }
 
     const unauthorizedRoles = roles.filter((role) => {
-      if (role.id === ACCESS_AUDIT_BOOSTER_ROLE_ID) return false;
+      if (ACCESS_AUDIT_VIEW_ALLOWED_ROLE_IDS.has(role.id)) return false;
       return channel.permissionsFor(role)?.has(PermissionFlagsBits.ViewChannel);
     });
 
@@ -972,14 +1136,49 @@ export async function handleSecuritySlashCommand(
   if (subcommand === 'trust') {
     const user = interaction.options.getUser('user', true);
     store.addSecurityTrustedUser(interaction.guild.id, user.id, interaction.user.id);
-    await interaction.reply({ content: `âœ“ ${user} is trusted by HIT anti-nuke.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `Ã¢Å“â€œ ${user} is trusted by HIT anti-nuke.`, flags: MessageFlags.Ephemeral });
     return;
   }
   if (subcommand === 'untrust') {
     const user = interaction.options.getUser('user', true);
     if (user.id === interaction.guild.ownerId || user.id === interaction.client.user.id) throw new Error('The server owner and HIT are permanently trusted.');
     const removed = store.removeSecurityTrustedUser(interaction.guild.id, user.id);
-    await interaction.reply({ content: removed ? `âœ“ Removed ${user} from the trust list.` : `${user} was not on the trust list.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: removed ? `Ã¢Å“â€œ Removed ${user} from the trust list.` : `${user} was not on the trust list.`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  if (subcommand === 'access-fix') {
+    if (interaction.guild.ownerId !== interaction.user.id) {
+      throw new Error('Only the server owner can run this command.');
+    }
+
+    const confirmation = interaction.options
+      .getString('confirm', true)
+      .trim()
+      .toUpperCase();
+
+    if (confirmation !== 'FIX') {
+      throw new Error('Type FIX exactly to confirm.');
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const result = await applyRestrictedAccessPolicy(
+      interaction.guild,
+      interaction.user.id,
+    );
+
+    const embed = await createAccessAuditEmbed(interaction.guild);
+
+    await interaction.editReply({
+      content:
+        `Access policy applied to ${result.changed} channel(s). ` +
+        `Failures: ${result.failed.length}.` +
+        (result.failed.length
+          ? `\n${result.failed.slice(0, 10).join('\n')}`
+          : ''),
+      embeds: [embed],
+    });
+
     return;
   }
   if (subcommand === 'access-audit') {
@@ -993,14 +1192,14 @@ export async function handleSecuritySlashCommand(
     const reason = interaction.options.getString('reason', true);
     const minutes = interaction.options.getInteger('minutes') ?? settings.lockdownMinutes;
     const result = await activateLockdown(interaction.guild, settings, store, interaction.user.id, reason, minutes);
-    await interaction.editReply(`âœ“ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
+    await interaction.editReply(`Ã¢Å“â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
     return;
   }
   if (subcommand === 'unlock') {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const reason = interaction.options.getString('reason', true);
     const result = await deactivateLockdown(interaction.guild, settings, store, interaction.user.id, reason);
-    await interaction.editReply(`âœ“ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
+    await interaction.editReply(`Ã¢Å“â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
   }
 }
 
@@ -1023,11 +1222,11 @@ export async function handleSecurityPrefixCommand(message: Message, store: Store
   if (!reason) throw new Error(`Usage: ${prefix}${command} reason`);
   if (command === 'lockdown') {
     const result = await activateLockdown(message.guild, settings, store, message.author.id, reason, settings.lockdownMinutes);
-    await message.reply(`âœ“ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
+    await message.reply(`Ã¢Å“â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
     return;
   }
   const result = await deactivateLockdown(message.guild, settings, store, message.author.id, reason);
-  await message.reply(`âœ“ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
+  await message.reply(`Ã¢Å“â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
 }
 
 export function startSecurityWorker(client: Client, store: Store): NodeJS.Timeout {
