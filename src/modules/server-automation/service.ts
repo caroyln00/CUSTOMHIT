@@ -17,17 +17,63 @@ const MAIN_GENERAL_CHANNEL_ID = process.env.MAIN_GENERAL_CHANNEL_ID?.trim() || '
 const BOOST_CATEGORY_ID = process.env.BOOST_CATEGORY_ID?.trim() || '1528860276705984582';
 const NV_ROLE_ID = process.env.NV_ROLE_ID?.trim() || '1528838334707667146';
 const YV_ROLE_ID = process.env.YV_ROLE_ID?.trim() || '1528837906595057814';
-const PINGS_ROLE_NAME = 'Pings';
-const LEGACY_NO_PINGS_ROLE_NAMES = new Set(['no ping', 'no pings']);
-const NOTIFICATION_ROLE_NAMES = new Set([
-  'announcements',
-  'server updates',
-  'lfg',
-  'polls',
-  'partnerships',
-  'content drops',
-  'voice activity',
-]);
+const ONBOARDING_ROLE_SPECS = [
+  {
+    name: 'Announcements',
+    aliases: ['announcements', 'announcement'],
+    description: 'Receive Announcements notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Server Updates',
+    aliases: ['server updates', 'updates'],
+    description: 'Receive Server Updates notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'LFG',
+    aliases: ['lfg'],
+    description: 'Receive LFG notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Polls',
+    aliases: ['polls', 'poll'],
+    description: 'Receive Polls notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Partnerships',
+    aliases: ['partnerships', 'partnership'],
+    description: 'Receive Partnerships notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Content Drops',
+    aliases: ['content drops', 'content'],
+    description: 'Receive Content Drops notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Voice Activity',
+    aliases: ['voice activity', 'voice'],
+    description: 'Receive Voice Activity notifications.',
+    preservePermissions: false,
+  },
+  {
+    name: 'Recreation',
+    aliases: ['recreation'],
+    description: 'Receive Recreation notifications.',
+    preservePermissions: true,
+  },
+  {
+    name: 'Pings',
+    aliases: ['pings', 'no pings', 'no ping'],
+    description: 'Receive general server pings.',
+    preservePermissions: false,
+  },
+] as const;
+
 
 interface OnboardingOption {
   id: string;
@@ -142,166 +188,167 @@ async function ensureBoostAccess(guild: Guild): Promise<void> {
   }
 }
 
-async function ensurePingsRole(guild: Guild): Promise<Role> {
-  await Promise.all([guild.roles.fetch(), guild.channels.fetch()]);
+async function ensureOnboardingRole(
+  guild: Guild,
+  spec: (typeof ONBOARDING_ROLE_SPECS)[number],
+): Promise<Role> {
+  const aliases = new Set(spec.aliases.map((alias) => alias.toLowerCase()));
+  aliases.add(spec.name.toLowerCase());
 
   let role = guild.roles.cache.find((candidate) => (
-    !candidate.managed && candidate.name.toLowerCase() === PINGS_ROLE_NAME.toLowerCase()
+    !candidate.managed && candidate.name.toLowerCase() === spec.name.toLowerCase()
   )) ?? null;
 
   if (!role) {
     role = guild.roles.cache.find((candidate) => (
-      !candidate.managed && LEGACY_NO_PINGS_ROLE_NAMES.has(candidate.name.toLowerCase())
+      !candidate.managed && aliases.has(candidate.name.toLowerCase())
     )) ?? null;
   }
 
   if (!role) {
     role = await guild.roles.create({
-      name: PINGS_ROLE_NAME,
-      permissions: [],
+      name: spec.name,
+      permissions: 0n,
       hoist: false,
       mentionable: false,
-      reason: 'CUSTOMHIT onboarding notification role',
+      reason: 'CUSTOMHIT advanced onboarding role',
     });
-  } else if (
-    role.name !== PINGS_ROLE_NAME
-    || role.permissions.bitfield !== 0n
-    || role.hoist
-    || role.mentionable
-  ) {
-    role = await role.edit({
-      name: PINGS_ROLE_NAME,
-      permissions: [],
-      hoist: false,
-      mentionable: false,
-      reason: 'CUSTOMHIT onboarding notification role policy',
-    });
+  } else {
+    const shouldEdit = (
+      role.name !== spec.name
+      || role.hoist
+      || role.mentionable
+      || (!spec.preservePermissions && role.permissions.bitfield !== 0n)
+    );
+    if (shouldEdit) {
+      role = await role.edit({
+        name: spec.name,
+        permissions: spec.preservePermissions ? role.permissions.bitfield : 0n,
+        hoist: false,
+        mentionable: false,
+        reason: 'CUSTOMHIT advanced onboarding role policy',
+      });
+    }
   }
 
-  for (const channel of guild.channels.cache.values()) {
-    if (!('permissionOverwrites' in channel)) continue;
-    if (!channel.permissionOverwrites.cache.has(role.id)) continue;
-    await channel.permissionOverwrites.delete(
-      role.id,
-      'CUSTOMHIT Pings role must not change channel access',
-    ).catch(() => undefined);
-  }
-
-  const notificationPeers = guild.roles.cache.filter((candidate) => (
-    !candidate.managed
-    && candidate.id !== role.id
-    && NOTIFICATION_ROLE_NAMES.has(candidate.name.toLowerCase())
-  ));
-  const recreationRole = guild.roles.cache.find((candidate) => (
-    !candidate.managed && candidate.name.toLowerCase() === 'recreation'
-  ));
-  const targetPosition = notificationPeers.size > 0
-    ? Math.min(...notificationPeers.map((candidate) => candidate.position))
-    : Math.max((recreationRole?.position ?? 3) + 1, 4);
-  if (role.position !== targetPosition) {
-    await role.setPosition(targetPosition, {
-      reason: 'CUSTOMHIT notification role hierarchy',
-    }).catch(() => undefined);
+  if (!spec.preservePermissions) {
+    for (const channel of guild.channels.cache.values()) {
+      if (!('permissionOverwrites' in channel)) continue;
+      if (!channel.permissionOverwrites.cache.has(role.id)) continue;
+      await channel.permissionOverwrites.delete(
+        role.id,
+        'CUSTOMHIT notification roles must not alter channel access',
+      ).catch(() => undefined);
+    }
   }
 
   return role;
 }
 
-function roleForOnboardingOption(guild: Guild, option: OnboardingOption): Role | null {
-  for (const roleId of option.role_ids) {
-    if (roleId === NV_ROLE_ID) continue;
-    const role = guild.roles.cache.get(roleId);
-    if (role) return role;
+async function ensureOnboardingRoles(guild: Guild): Promise<Map<string, Role>> {
+  await Promise.all([guild.roles.fetch(), guild.channels.fetch()]);
+  const roles = new Map<string, Role>();
+  for (const spec of ONBOARDING_ROLE_SPECS) {
+    const role = await ensureOnboardingRole(guild, spec);
+    roles.set(spec.name, role);
   }
-  return null;
+
+  const notificationPeers = [...roles.values()].filter((role) => role.name !== 'Recreation');
+  const recreationRole = roles.get('Recreation');
+  const recreationPosition = recreationRole?.position ?? 3;
+  let nextPosition = Math.max(recreationPosition + 1, 4);
+  for (const role of notificationPeers.reverse()) {
+    if (role.position !== nextPosition) {
+      await role.setPosition(nextPosition, {
+        reason: 'CUSTOMHIT notification role hierarchy',
+      }).catch(() => undefined);
+    }
+    nextPosition += 1;
+  }
+
+  const retainedPings = roles.get('Pings');
+  for (const duplicate of guild.roles.cache.values()) {
+    if (duplicate.managed || duplicate.id === retainedPings?.id) continue;
+    const lowered = duplicate.name.toLowerCase();
+    if (lowered !== 'no ping' && lowered !== 'no pings') continue;
+    await duplicate.delete('CUSTOMHIT removed obsolete No Pings role').catch(() => undefined);
+  }
+
+  return roles;
 }
 
-function cleanPromptTitle(title: string): string {
-  return title.replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '').replace(/\s+/g, ' ').trim()
-    || 'Choose your notification roles';
-}
-
-async function repairOnboarding(guild: Guild): Promise<Role | null> {
-  const pingsRole = await ensurePingsRole(guild).catch((error: unknown) => {
-    logger.warn('Could not create or repair Pings role', { guildId: guild.id, error: String(error) });
+async function repairOnboarding(guild: Guild): Promise<Map<string, Role> | null> {
+  const roles = await ensureOnboardingRoles(guild).catch((error: unknown) => {
+    logger.warn('Could not create or repair onboarding roles', {
+      guildId: guild.id,
+      error: String(error),
+    });
     return null;
   });
-  if (!pingsRole) return null;
+  if (!roles) return null;
 
   const route = Routes.guildOnboarding(guild.id);
   const onboarding = await guild.client.rest.get(route).catch((error: unknown) => {
     logger.warn('Could not read guild onboarding', { guildId: guild.id, error: String(error) });
     return null;
   }) as GuildOnboarding | null;
-  if (!onboarding) return pingsRole;
+  if (!onboarding) return roles;
 
-  let changed = false;
-  const prompts = onboarding.prompts.map((prompt) => {
-    const promptTitle = cleanPromptTitle(prompt.title);
-    if (promptTitle !== prompt.title) changed = true;
-
-    const options = prompt.options.map((option) => {
-      const configuredRole = roleForOnboardingOption(guild, option);
-      const isLegacyNoPingsOption = (
-        configuredRole === null
-        || LEGACY_NO_PINGS_ROLE_NAMES.has(option.title.toLowerCase().trim())
-      );
-      const role = isLegacyNoPingsOption ? pingsRole : configuredRole;
-      const title = role?.name ?? PINGS_ROLE_NAME;
-      const description = role?.id === pingsRole.id
-        ? 'Receive general server pings.'
-        : `Receive ${title} notifications.`;
-      const roleIds = isLegacyNoPingsOption
-        ? [...new Set([...option.role_ids, pingsRole.id])]
-        : option.role_ids;
-
-      if (
-        option.title !== title
-        || option.description !== description
-        || option.emoji_id !== null
-        || option.emoji_name !== null
-        || option.emoji_animated === true
-        || roleIds.length !== option.role_ids.length
-        || roleIds.some((roleId, index) => roleId !== option.role_ids[index])
-      ) {
-        changed = true;
-      }
-      return {
-        id: option.id,
-        title,
-        description,
-        role_ids: roleIds,
-        channel_ids: option.channel_ids,
-        emoji_id: null,
-        emoji_name: null,
-        emoji_animated: false,
-      };
+  const sourcePrompt = onboarding.prompts[0];
+  if (!sourcePrompt || sourcePrompt.options.length < ONBOARDING_ROLE_SPECS.length) {
+    logger.warn('Advanced onboarding repair requires one prompt with at least nine existing options', {
+      guildId: guild.id,
+      promptCount: onboarding.prompts.length,
+      optionCount: sourcePrompt?.options.length ?? 0,
     });
+    return roles;
+  }
 
+  const options = ONBOARDING_ROLE_SPECS.map((spec, index) => {
+    const sourceOption = sourcePrompt.options[index];
+    const role = roles.get(spec.name);
+    if (!sourceOption) throw new Error(`Missing source onboarding option ${index + 1}.`);
+    if (!role) throw new Error(`Missing onboarding role ${spec.name}.`);
     return {
-      id: prompt.id,
-      type: prompt.type,
-      title: promptTitle,
-      single_select: prompt.single_select,
-      required: prompt.required,
-      in_onboarding: prompt.in_onboarding,
-      options,
+      id: sourceOption.id,
+      title: spec.name,
+      description: spec.description,
+      role_ids: [NV_ROLE_ID, role.id],
+      channel_ids: [],
+      emoji_id: null,
+      emoji_name: null,
+      emoji_animated: false,
     };
   });
 
-  if (!changed) return pingsRole;
+  const prompt: OnboardingPrompt = {
+    id: sourcePrompt.id,
+    type: 0,
+    title: 'What do you want to be notified about?',
+    single_select: false,
+    required: true,
+    in_onboarding: true,
+    options,
+  };
+
   await guild.client.rest.put(route, {
     body: {
-      prompts,
+      prompts: [prompt],
       default_channel_ids: onboarding.default_channel_ids,
-      enabled: onboarding.enabled,
-      mode: onboarding.mode ?? 0,
+      enabled: true,
+      mode: 1,
     },
-    reason: 'CUSTOMHIT onboarding Pings role and option repair',
-  }).catch((error: unknown) => {
-    logger.warn('Could not update guild onboarding', { guildId: guild.id, error: String(error) });
+    reason: 'CUSTOMHIT deterministic advanced onboarding configuration',
   });
-  return pingsRole;
+
+  logger.info('CUSTOMHIT advanced onboarding repaired', {
+    guildId: guild.id,
+    mode: 1,
+    enabled: true,
+    optionNames: ONBOARDING_ROLE_SPECS.map((spec) => spec.name),
+    defaultChannelCount: onboarding.default_channel_ids.length,
+  });
+  return roles;
 }
 
 function ensureLevelConfiguration(guild: Guild, store: Store): void {
@@ -336,12 +383,13 @@ export async function ensureCustomHitServerConfiguration(client: Client, store: 
   await Promise.all([guild.channels.fetch(), guild.roles.fetch()]);
   ensureLevelConfiguration(guild, store);
   await ensureBoostAccess(guild);
-  const pingsRole = await repairOnboarding(guild);
+  const onboardingRoles = await repairOnboarding(guild);
   logger.info('CUSTOMHIT server automation complete', {
     guildId: guild.id,
     mainGeneralChannelId: findMainGeneral(guild)?.id,
     boostCategoryId: findBoostCategory(guild)?.id,
-    pingsRoleId: pingsRole?.id,
+    pingsRoleId: onboardingRoles?.get('Pings')?.id,
+    onboardingMode: 'advanced',
   });
 }
 
