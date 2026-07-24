@@ -308,7 +308,12 @@ export const levelCommand = new SlashCommandBuilder()
     .addIntegerOption((option) => option.setName('page').setDescription('Leaderboard page.').setMinValue(1).setMaxValue(100)))
   .addSubcommand((subcommand) => subcommand
     .setName('rewards')
-    .setDescription('Show configured level reward roles.'));
+    .setDescription('Show configured level reward roles.')
+    .addIntegerOption((option) => option
+      .setName('page')
+      .setDescription('Reward page.')
+      .setMinValue(1)
+      .setMaxValue(100)));
 
 
 export const recreationCommand = new SlashCommandBuilder()

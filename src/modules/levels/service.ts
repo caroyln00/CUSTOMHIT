@@ -374,12 +374,23 @@ async function leaderboardEmbed(guild: Guild, store: Store, page: number): Promi
     .setFooter({ text: `Page ${safePage}` });
 }
 
-function rewardsEmbed(guild: Guild, store: Store): EmbedBuilder {
+function rewardsEmbed(guild: Guild, store: Store, requestedPage = 1): EmbedBuilder {
   const rewards = store.listLevelRewards(guild.id);
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(rewards.length / pageSize));
+  const safeRequestedPage = Number.isFinite(requestedPage) ? Math.trunc(requestedPage) : 1;
+  const page = Math.min(Math.max(safeRequestedPage, 1), totalPages);
+  const offset = (page - 1) * pageSize;
+  const visibleRewards = rewards.slice(offset, offset + pageSize);
   const description = rewards.length === 0
     ? 'No level reward roles are configured.'
-    : rewards.map((reward) => `Level **${reward.level}** â€” <@&${reward.roleId}>`).join('\n');
-  return new EmbedBuilder().setColor(COLOR).setTitle('HIT LEVEL REWARDS').setDescription(description);
+    : visibleRewards.map((reward) => `Level **${reward.level}** - <@&${reward.roleId}>`).join('\n');
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle('HIT LEVEL REWARDS')
+    .setDescription(description)
+    .setFooter({ text: `Page ${page}/${totalPages} | ${rewards.length} configured reward role(s)` });
 }
 
 export async function handleLevelSlashCommand(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
@@ -404,7 +415,8 @@ export async function handleLevelSlashCommand(interaction: ChatInputCommandInter
   }
 
   if (subcommand === 'rewards') {
-    await interaction.reply({ embeds: [rewardsEmbed(interaction.guild, store)] });
+    const page = interaction.options.getInteger('page') ?? 1;
+    await interaction.reply({ embeds: [rewardsEmbed(interaction.guild, store, page)] });
   }
 }
 
