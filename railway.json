@@ -5,9 +5,12 @@
                   "dockerfilePath":  "Dockerfile"
               },
     "deploy":  {
-                   "startCommand":  "npm run start:cloud",
+                   "startCommand":  "npm start",
                    "restartPolicyType":  "ALWAYS",
                    "overlapSeconds":  0,
-                   "drainingSeconds":  10
+                   "drainingSeconds":  10,
+                   "preDeployCommand":  [
+                                            "npm run register"
+                                        ]
                }
-}
+}`n
