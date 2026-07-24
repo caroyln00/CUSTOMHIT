@@ -53,6 +53,7 @@ import {
   handleLevelsMessage,
   handleLevelsPrefixCommand,
   handleLevelSlashCommand,
+  handleXpSlashCommand,
   startLevelsWorker,
 } from './modules/levels/service.js';
 
@@ -87,6 +88,10 @@ import {
   onPassiveMemberRemove,
 } from './modules/passive/service.js';
 import { handleFunSlashCommand } from './modules/fun/service.js';
+import {
+  ensureCustomHitServerConfiguration,
+  handleBoosterMemberUpdate,
+} from './modules/server-automation/service.js';
 
 import {
   handleGuidedLfgChannelMessage,
@@ -120,7 +125,7 @@ let voiceWorker: NodeJS.Timeout | undefined;
 let levelsWorker: NodeJS.Timeout | undefined;
 let recreationWorker: NodeJS.Timeout | undefined;
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   logger.info('HIT is online', {
     user: readyClient.user.tag,
     version: HIT_VERSION,
@@ -135,6 +140,9 @@ client.once(Events.ClientReady, (readyClient) => {
   voiceWorker = startVoiceWorker(client, store);
   levelsWorker = startLevelsWorker(client, store);
   recreationWorker = startRecreationWorker(client, store);
+  await ensureCustomHitServerConfiguration(readyClient, store).catch((error) => {
+    logger.error('CUSTOMHIT server automation failed', { error: String(error) });
+  });
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -208,6 +216,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isChatInputCommand() && interaction.commandName === 'level') {
       await handleLevelSlashCommand(interaction, store);
+      return;
+    }
+    if (interaction.isChatInputCommand() && interaction.commandName === 'xp') {
+      await handleXpSlashCommand(interaction, store);
       return;
     }
     if (interaction.isChatInputCommand() && interaction.commandName === 'recreation') {
@@ -302,6 +314,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!('roles' in oldMember)) return;
   try {
     await handlePassiveMemberUpdate(oldMember as import('discord.js').GuildMember, newMember);
+    await handleBoosterMemberUpdate(oldMember as import('discord.js').GuildMember, newMember);
   } catch (error) {
     logger.error('Passive member-update handler failed', { guildId: newMember.guild.id, userId: newMember.id, error: String(error) });
   }

@@ -1,13 +1,24 @@
-export const MAX_LEVEL = 500;
+export const MAX_LEVEL = 1000;
+export const XP_PER_LEVEL_SQUARED = 10;
 
 export function xpForLevel(level: number): number {
   const safeLevel = Math.max(0, Math.min(MAX_LEVEL, Math.trunc(level)));
-  return 100 * safeLevel * safeLevel;
+  return XP_PER_LEVEL_SQUARED * safeLevel * safeLevel;
 }
 
 export function levelFromXp(xp: number): number {
   const safeXp = Math.max(0, Math.trunc(xp));
-  return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(safeXp / 100)));
+  return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(safeXp / XP_PER_LEVEL_SQUARED)));
+}
+
+export function levelUpBonus(oldLevel: number, newLevel: number): number {
+  const safeOld = Math.max(0, Math.min(MAX_LEVEL, Math.trunc(oldLevel)));
+  const safeNew = Math.max(safeOld, Math.min(MAX_LEVEL, Math.trunc(newLevel)));
+  const count = safeNew - safeOld;
+  if (count <= 0) return 0;
+  const first = safeOld + 1;
+  const levelSum = ((first + safeNew) * count) / 2;
+  return Math.trunc((count * 5) + (levelSum * 2));
 }
 
 export interface LevelProgress {

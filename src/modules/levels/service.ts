@@ -21,6 +21,8 @@ import { logger } from '../../core/logger.js';
 import {
   isMeaningfulMessage,
   levelFromXp,
+  levelUpBonus,
+  MAX_LEVEL,
   levelProgress,
   progressBar,
   randomXp,
@@ -32,6 +34,8 @@ const SUCCESS = 0x22c55e;
 const FAILURE = 0xef4444;
 const VOICE_TICK_MS = 30_000;
 const HELP_DELETE_MS = 15_000;
+const BOOSTER_XP_MULTIPLIER = 1.5;
+const MAX_ANNOUNCED_REWARD_ROLES = 8;
 const voiceAwardClocks = new Map<string, number>();
 
 function requireSettings(store: Store, guildId: string): LevelSettings {
@@ -146,6 +150,14 @@ function loadActivityRanks(): ActivityRank[] {
   }
 }
 
+function memberXpMultiplier(member: GuildMember): number {
+  return member.premiumSince ? BOOSTER_XP_MULTIPLIER : 1;
+}
+
+function multipliedXp(member: GuildMember, amount: number): number {
+  return Math.max(0, Math.trunc(amount * memberXpMultiplier(member)));
+}
+
 async function syncRewardRoles(
   member: GuildMember,
   settings: LevelSettings,
@@ -155,9 +167,7 @@ async function syncRewardRoles(
   const rewards = store.listLevelRewards(member.guild.id);
   const activityRanks = loadActivityRanks();
 
-  if (rewards.length === 0 && activityRanks.length === 0) {
-    return [];
-  }
+  if (rewards.length === 0 && activityRanks.length === 0) return [];
 
   const eligible = rewards.filter((reward) => reward.level <= level);
   const desiredIds = new Set<string>();
@@ -169,32 +179,47 @@ async function syncRewardRoles(
   }
 
   for (const rank of activityRanks) {
-    if (rank.unlockLevel <= level) {
-      desiredIds.add(rank.roleId);
-    }
+    if (rank.unlockLevel <= level) desiredIds.add(rank.roleId);
   }
 
   const rewardIds = new Set([
     ...rewards.map((reward) => reward.roleId),
     ...activityRanks.map((rank) => rank.roleId),
   ]);
-  const added: string[] = [];
-  for (const roleId of desiredIds) {
-    if (member.roles.cache.has(roleId)) continue;
-    const role = await member.guild.roles.fetch(roleId).catch(() => null);
-    if (!role || !role.editable) continue;
-    await member.roles.add(role, `HIT level reward at level ${level}`).catch(() => undefined);
-    if (member.roles.cache.has(roleId)) added.push(roleId);
+
+  await member.guild.roles.fetch().catch(() => undefined);
+  const addRoles = [...desiredIds]
+    .filter((roleId) => !member.roles.cache.has(roleId))
+    .map((roleId) => member.guild.roles.cache.get(roleId))
+    .filter((role): role is Role => Boolean(role?.editable));
+  const removeRoles = [...rewardIds]
+    .filter((roleId) => !desiredIds.has(roleId) && member.roles.cache.has(roleId))
+    .map((roleId) => member.guild.roles.cache.get(roleId))
+    .filter((role): role is Role => Boolean(role?.editable));
+
+  if (addRoles.length > 0) {
+    await member.roles.add(addRoles, `HIT bulk level reward synchronization at level ${level}`);
+  }
+  if (removeRoles.length > 0) {
+    await member.roles.remove(removeRoles, `HIT bulk level reward synchronization at level ${level}`);
   }
 
-  const removeIds = [...rewardIds].filter((roleId) => !desiredIds.has(roleId) && member.roles.cache.has(roleId));
-  for (const roleId of removeIds) {
-    const role = await member.guild.roles.fetch(roleId).catch(() => null);
-    if (!role || !role.editable) continue;
-    await member.roles.remove(role, `HIT level reward synchronization at level ${level}`).catch(() => undefined);
-  }
+  return addRoles.map((role) => role.id);
+}
 
-  return added;
+async function resolveAnnouncementChannel(member: GuildMember, settings: LevelSettings, sourceChannelId: string | null) {
+  const preferredId = process.env.MAIN_GENERAL_CHANNEL_ID?.trim() || '1528858711773151283';
+  const preferred = await fetchTextChannel(member.guild, preferredId);
+  if (preferred) return preferred;
+  const mainGeneral = member.guild.channels.cache.find((channel) => (
+    channel.type === ChannelType.GuildText
+    && channel.name.toLowerCase() === 'general'
+    && channel.parent?.name.toLowerCase() === 'general'
+  ));
+  if (mainGeneral?.type === ChannelType.GuildText) return mainGeneral;
+  const configured = await fetchTextChannel(member.guild, settings.announceChannelId);
+  if (configured) return configured;
+  return fetchTextChannel(member.guild, sourceChannelId);
 }
 
 async function announceLevelUp(
@@ -204,41 +229,110 @@ async function announceLevelUp(
   newLevel: number,
   sourceChannelId: string | null,
   addedRoleIds: string[],
+  bonusXp: number,
 ): Promise<void> {
   if (!settings.announceLevelUps || newLevel <= oldLevel) return;
-  const channelId = settings.announceChannelId ?? sourceChannelId;
-  const channel = await fetchTextChannel(member.guild, channelId);
+  const channel = await resolveAnnouncementChannel(member, settings, sourceChannelId);
   if (!channel) return;
-  const rewardLine = addedRoleIds.length > 0
-    ? `\nReward role${addedRoleIds.length === 1 ? '' : 's'}: ${addedRoleIds.map((id) => `<@&${id}>`).join(', ')}`
+  const visibleRoles = addedRoleIds.slice(0, MAX_ANNOUNCED_REWARD_ROLES);
+  const hiddenCount = Math.max(0, addedRoleIds.length - visibleRoles.length);
+  const rewardLine = visibleRoles.length > 0
+    ? `
+Reward role${addedRoleIds.length === 1 ? '' : 's'}: ${visibleRoles.map((id) => `<@&${id}>`).join(', ')}${hiddenCount > 0 ? ` and ${hiddenCount} more` : ''}`
     : '';
+  const bonusLine = bonusXp > 0 ? `
+Level-up bonus: **+${bonusXp.toLocaleString()} XP**` : '';
   await channel.send({
-    content: `<@${member.id}> reached level **${newLevel}**.${rewardLine}`,
+    content: `<@${member.id}> reached level **${newLevel}**.${bonusLine}${rewardLine}`,
     allowedMentions: { users: [member.id], roles: [] },
   }).catch(() => undefined);
+}
+
+interface ProcessLevelResult {
+  change: LevelXpChange;
+  oldLevel: number;
+  newLevel: number;
+  bonusXp: number;
+  addedRoleIds: string[];
+}
+
+function applyNaturalLevelBonuses(
+  change: LevelXpChange,
+  store: Store,
+  source: 'message' | 'voice' | 'admin',
+): { change: LevelXpChange; bonusXp: number } {
+  if (source === 'admin') return { change, bonusXp: 0 };
+
+  const originalBefore = change.before;
+  let after = change.after;
+  let rewardedThrough = levelFromXp(originalBefore.xp);
+  let totalBonus = 0;
+
+  for (let pass = 0; pass < 25; pass += 1) {
+    const reached = levelFromXp(after.xp);
+    if (reached <= rewardedThrough) break;
+    const bonus = levelUpBonus(rewardedThrough, reached);
+    if (bonus <= 0) break;
+    const bonusChange = store.adjustLevelXp(after.guildId, after.userId, bonus);
+    after = bonusChange.after;
+    totalBonus += bonus;
+    rewardedThrough = reached;
+  }
+
+  return {
+    change: {
+      before: originalBefore,
+      after,
+      amount: after.xp - originalBefore.xp,
+    },
+    bonusXp: totalBonus,
+  };
 }
 
 async function processLevelChange(
   member: GuildMember,
   settings: LevelSettings,
-  change: LevelXpChange,
+  initialChange: LevelXpChange,
   store: Store,
   source: 'message' | 'voice' | 'admin',
   sourceChannelId: string | null,
-): Promise<void> {
+): Promise<ProcessLevelResult> {
+  const bonusResult = applyNaturalLevelBonuses(initialChange, store, source);
+  const change = bonusResult.change;
   const oldLevel = levelFromXp(change.before.xp);
   const newLevel = levelFromXp(change.after.xp);
-  if (newLevel === oldLevel) return;
+  const shouldSync = source === 'admin' || newLevel !== oldLevel;
+  const addedRoleIds = shouldSync
+    ? await syncRewardRoles(member, settings, newLevel, store)
+    : [];
 
-  const addedRoleIds = await syncRewardRoles(member, settings, newLevel, store);
-  await sendLevelLog(member.guild, settings, 'LEVEL CHANGED', [
-    `Member: <@${member.id}>`,
-    `Previous level: ${oldLevel}`,
-    `New level: ${newLevel}`,
-    `XP: ${change.after.xp}`,
-    `Source: ${source}`,
-  ].join('\n'));
-  await announceLevelUp(member, settings, oldLevel, newLevel, sourceChannelId, addedRoleIds);
+  if (newLevel !== oldLevel) {
+    await sendLevelLog(member.guild, settings, 'LEVEL CHANGED', [
+      `Member: <@${member.id}>`,
+      `Previous level: ${oldLevel}`,
+      `New level: ${newLevel}`,
+      `XP: ${change.after.xp}`,
+      `Bonus XP: ${bonusResult.bonusXp}`,
+      `Source: ${source}`,
+    ].join('\n'));
+    await announceLevelUp(
+      member,
+      settings,
+      oldLevel,
+      newLevel,
+      sourceChannelId,
+      addedRoleIds,
+      bonusResult.bonusXp,
+    );
+  }
+
+  return {
+    change,
+    oldLevel,
+    newLevel,
+    bonusXp: bonusResult.bonusXp,
+    addedRoleIds,
+  };
 }
 
 export async function handleLevelsMessage(message: Message, store: Store, defaultPrefix: string): Promise<void> {
@@ -252,7 +346,7 @@ export async function handleLevelsMessage(message: Message, store: Store, defaul
   const parentId = 'parentId' in message.channel ? message.channel.parentId : null;
   if (channelExcluded(message.guild.id, message.channelId, parentId, store)) return;
 
-  const amount = randomXp(settings.messageXpMin, settings.messageXpMax);
+  const amount = multipliedXp(message.member, randomXp(settings.messageXpMin, settings.messageXpMax));
   const change = store.tryAwardMessageXp(
     message.guild.id,
     message.author.id,
@@ -302,7 +396,7 @@ async function awardVoiceActivity(client: Client, store: Store): Promise<void> {
       const change = store.awardVoiceXp(
         guild.id,
         member.id,
-        settings.voiceXpPerMinute * minutes,
+        multipliedXp(member, settings.voiceXpPerMinute * minutes),
         minutes,
         now,
       );
@@ -350,7 +444,7 @@ function rankEmbed(member: GuildMember, profile: LevelProfile | null, rank: numb
       { name: 'Level', value: String(progress.level), inline: true },
       { name: 'Rank', value: rank ? `#${rank}` : 'Unranked', inline: true },
       { name: 'Total XP', value: safeProfile.xp.toLocaleString(), inline: true },
-      { name: 'XP for next level', value: progress.level >= 500 ? 'Maximum level' : xpForLevel(progress.level + 1).toLocaleString(), inline: true },
+      { name: 'XP for next level', value: progress.level >= MAX_LEVEL ? 'Maximum level' : xpForLevel(progress.level + 1).toLocaleString(), inline: true },
       { name: 'XP messages', value: safeProfile.messageCount.toLocaleString(), inline: true },
       { name: 'Voice minutes', value: safeProfile.voiceMinutes.toLocaleString(), inline: true },
     );
@@ -476,8 +570,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
     if (announceChannel && announceChannel.type !== ChannelType.GuildText && announceChannel.type !== ChannelType.GuildAnnouncement) {
       throw new Error('Announcement channel must be a standard text or announcement channel.');
     }
-    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 15;
-    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 25;
+    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 50;
+    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 100;
     if (messageXpMin > messageXpMax) throw new Error('Message XP minimum cannot exceed the maximum.');
     const settings = store.upsertLevelSettings({
       guildId: interaction.guildId,
@@ -486,8 +580,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       logChannelId: logChannel.id,
       messageXpMin,
       messageXpMax,
-      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 60,
-      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 10,
+      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 15,
+      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 50,
       voiceMinMembers: interaction.options.getInteger('voice_min_members') ?? existing?.voiceMinMembers ?? 2,
       announceLevelUps: interaction.options.getBoolean('announce_level_ups') ?? existing?.announceLevelUps ?? true,
       stackRewardRoles: interaction.options.getBoolean('stack_reward_roles') ?? existing?.stackRewardRoles ?? true,
@@ -571,7 +665,7 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
     }
     if (action === 'add-reward' || action === 'remove-reward') {
       const level = interaction.options.getInteger('level');
-      if (!level) throw new Error('Choose a level for that reward action.');
+      if (level === null || level < 1) throw new Error('Choose a reward level from 1 through 1000.');
       if (action === 'add-reward') {
         const role = interaction.options.getRole('role');
         if (!role) throw new Error('Choose a role to add as the reward.');
@@ -632,18 +726,24 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
     const currentProfile = store.getLevelProfile(interaction.guildId, userId);
     const current = currentProfile?.xp ?? 0;
     if (action === 'sync-user') {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const member = await interaction.guild.members.fetch(userId).catch(() => null);
       if (!member) throw new Error('That member is not in this server.');
       const added = await syncRewardRoles(member, settings, levelFromXp(current), store);
-      await interaction.reply({
-        content: `Synchronized level reward roles for <@${userId}>.${added.length > 0 ? ` Added ${added.length} role(s).` : ''}`,
-        flags: MessageFlags.Ephemeral,
-      });
+      await interaction.editReply(
+        `Synchronized level reward roles for <@${userId}>.${added.length > 0 ? ` Added ${added.length} role(s).` : ''}`,
+      );
       return true;
     }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     let change: LevelXpChange;
     if (action === 'reset-user') {
       change = store.setLevelXp(interaction.guildId, userId, 0);
+    } else if (action === 'set-level') {
+      const level = interaction.options.getInteger('level');
+      if (level === null) throw new Error('Choose a level from 0 through 1000.');
+      change = store.setLevelXp(interaction.guildId, userId, xpForLevel(level));
     } else {
       const amount = interaction.options.getInteger('amount');
       if (amount === null) throw new Error('Choose an XP amount for that action.');
@@ -653,19 +753,96 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       else throw new Error('Unknown levels management action.');
     }
     const member = await interaction.guild.members.fetch(userId).catch(() => null);
-    if (member) await processLevelChange(member, settings, change, store, 'admin', null);
+    const result = member
+      ? await processLevelChange(member, settings, change, store, 'admin', null)
+      : { change, oldLevel: levelFromXp(change.before.xp), newLevel: levelFromXp(change.after.xp), bonusXp: 0, addedRoleIds: [] };
     await sendLevelLog(interaction.guild, settings, 'LEVEL XP ADMIN CHANGE', [
       `Member: <@${userId}>`,
       `Moderator: <@${interaction.user.id}>`,
       `Previous XP: ${current}`,
-      `New XP: ${change.after.xp}`,
+      `New XP: ${result.change.after.xp}`,
       `Action: ${action}`,
     ].join('\n'));
-    await interaction.reply({ content: `<@${userId}> now has ${change.after.xp.toLocaleString()} XP at level ${levelFromXp(change.after.xp)}.`, flags: MessageFlags.Ephemeral });
+    await interaction.editReply(
+      `<@${userId}> now has ${result.change.after.xp.toLocaleString()} XP at level ${result.newLevel}.`,
+    );
     return true;
   }
 
   return false;
+}
+
+export async function handleXpSlashCommand(interaction: ChatInputCommandInteraction, store: Store): Promise<void> {
+  if (interaction.commandName !== 'xp' || !interaction.inCachedGuild()) return;
+  const settings = requireSettings(store, interaction.guildId);
+  const action = interaction.options.getSubcommand();
+
+  if (action === 'sync-all') {
+    if (interaction.user.id !== interaction.guild.ownerId) {
+      throw new Error('Only the server owner can synchronize all reward roles.');
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const members = await interaction.guild.members.fetch();
+    let synchronized = 0;
+    let rolesAdded = 0;
+    const failures: string[] = [];
+    for (const member of members.values()) {
+      if (member.user.bot) continue;
+      try {
+        const profile = store.getLevelProfile(interaction.guildId, member.id);
+        const added = await syncRewardRoles(member, settings, levelFromXp(profile?.xp ?? 0), store);
+        synchronized += 1;
+        rolesAdded += added.length;
+      } catch (error) {
+        failures.push(`${member.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    await interaction.editReply(
+      `Synchronized ${synchronized} member(s). Added ${rolesAdded} role(s). Failures: ${failures.length}.` +
+      (failures.length > 0 ? `
+${failures.slice(0, 10).join('\n')}` : ''),
+    );
+    return;
+  }
+
+  const user = interaction.options.getUser('user', true);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+  if (!member) throw new Error('That member is not in this server.');
+  const before = store.getLevelProfile(interaction.guildId, user.id)?.xp ?? 0;
+
+  if (action === 'sync') {
+    const added = await syncRewardRoles(member, settings, levelFromXp(before), store);
+    await interaction.editReply(`Synchronized <@${user.id}>. Added ${added.length} role(s).`);
+    return;
+  }
+
+  let change: LevelXpChange;
+  if (action === 'give') {
+    change = store.adjustLevelXp(interaction.guildId, user.id, interaction.options.getInteger('amount', true));
+  } else if (action === 'remove') {
+    change = store.adjustLevelXp(interaction.guildId, user.id, -interaction.options.getInteger('amount', true));
+  } else if (action === 'set') {
+    change = store.setLevelXp(interaction.guildId, user.id, interaction.options.getInteger('amount', true));
+  } else if (action === 'level') {
+    change = store.setLevelXp(interaction.guildId, user.id, xpForLevel(interaction.options.getInteger('level', true)));
+  } else if (action === 'reset') {
+    change = store.setLevelXp(interaction.guildId, user.id, 0);
+  } else {
+    throw new Error('Unknown XP command.');
+  }
+
+  const result = await processLevelChange(member, settings, change, store, 'admin', null);
+  await sendLevelLog(interaction.guild, settings, 'FAST XP ADMIN CHANGE', [
+    `Member: <@${user.id}>`,
+    `Moderator: <@${interaction.user.id}>`,
+    `Previous XP: ${before}`,
+    `New XP: ${result.change.after.xp}`,
+    `Action: ${action}`,
+  ].join('\n'));
+  await interaction.editReply(
+    `<@${user.id}> now has ${result.change.after.xp.toLocaleString()} XP at level ${result.newLevel}.`,
+  );
 }
 
 function levelsHelp(prefix: string): string {

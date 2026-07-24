@@ -79,10 +79,10 @@ export const hitCommand = new SlashCommandBuilder()
     .setDescription('Configure HIT message and voice XP.')
     .addChannelOption((option) => option.setName('log_channel').setDescription('Private channel for level activity logs.').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
     .addChannelOption((option) => option.setName('announce_channel').setDescription('Optional channel for level-up announcements.').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
-    .addIntegerOption((option) => option.setName('message_xp_min').setDescription('Minimum XP awarded per eligible message.').setMinValue(1).setMaxValue(100))
-    .addIntegerOption((option) => option.setName('message_xp_max').setDescription('Maximum XP awarded per eligible message.').setMinValue(1).setMaxValue(100))
-    .addIntegerOption((option) => option.setName('message_cooldown_seconds').setDescription('Message XP cooldown in seconds.').setMinValue(10).setMaxValue(600))
-    .addIntegerOption((option) => option.setName('voice_xp_per_minute').setDescription('XP awarded per eligible voice minute; 0 disables.').setMinValue(0).setMaxValue(100))
+    .addIntegerOption((option) => option.setName('message_xp_min').setDescription('Minimum XP awarded per eligible message.').setMinValue(1).setMaxValue(1000))
+    .addIntegerOption((option) => option.setName('message_xp_max').setDescription('Maximum XP awarded per eligible message.').setMinValue(1).setMaxValue(1000))
+    .addIntegerOption((option) => option.setName('message_cooldown_seconds').setDescription('Message XP cooldown in seconds.').setMinValue(5).setMaxValue(600))
+    .addIntegerOption((option) => option.setName('voice_xp_per_minute').setDescription('XP awarded per eligible voice minute; 0 disables.').setMinValue(0).setMaxValue(1000))
     .addIntegerOption((option) => option.setName('voice_min_members').setDescription('Active non-bot members required in voice.').setMinValue(1).setMaxValue(10))
     .addBooleanOption((option) => option.setName('announce_level_ups').setDescription('Post level-up announcements.'))
     .addBooleanOption((option) => option.setName('stack_reward_roles').setDescription('Keep every earned reward role instead of only the highest.')))
@@ -101,6 +101,7 @@ export const hitCommand = new SlashCommandBuilder()
       { name: 'Add XP', value: 'add-xp' },
       { name: 'Remove XP', value: 'remove-xp' },
       { name: 'Set XP', value: 'set-xp' },
+      { name: 'Set Level', value: 'set-level' },
       { name: 'Reset user XP', value: 'reset-user' },
       { name: 'Sync user reward roles', value: 'sync-user' },
         { name: 'Sync all member reward roles', value: 'sync-all' },
@@ -110,9 +111,45 @@ export const hitCommand = new SlashCommandBuilder()
     ))
     .addChannelOption((option) => option.setName('channel').setDescription('Channel or category for an exclusion action.').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildVoice, ChannelType.GuildStageVoice, ChannelType.GuildCategory, ChannelType.GuildForum))
     .addRoleOption((option) => option.setName('role').setDescription('Role for an exclusion or reward action.'))
-    .addIntegerOption((option) => option.setName('level').setDescription('Level for a reward action.').setMinValue(1).setMaxValue(500))
+    .addIntegerOption((option) => option.setName('level').setDescription('Level for a reward or Set Level action.').setMinValue(0).setMaxValue(1000))
     .addUserOption((option) => option.setName('user').setDescription('Member for an XP action.'))
-    .addIntegerOption((option) => option.setName('amount').setDescription('XP amount for add, remove, or set.').setMinValue(0).setMaxValue(1000000000)));
+    .addIntegerOption((option) => option.setName('amount').setDescription('XP amount for add, remove, or set.').setMinValue(0).setMaxValue(9000000000000)));
+
+export const xpCommand = new SlashCommandBuilder()
+  .setName('xp')
+  .setDescription('Fast owner and staff XP controls.')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addSubcommand((subcommand) => subcommand
+    .setName('give')
+    .setDescription('Give a member XP and synchronize earned roles.')
+    .addUserOption((option) => option.setName('user').setDescription('Member receiving XP.').setRequired(true))
+    .addIntegerOption((option) => option.setName('amount').setDescription('XP to give.').setMinValue(1).setMaxValue(9000000000000).setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('remove')
+    .setDescription('Remove XP from a member.')
+    .addUserOption((option) => option.setName('user').setDescription('Member losing XP.').setRequired(true))
+    .addIntegerOption((option) => option.setName('amount').setDescription('XP to remove.').setMinValue(1).setMaxValue(9000000000000).setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('set')
+    .setDescription('Set a member to an exact XP amount.')
+    .addUserOption((option) => option.setName('user').setDescription('Member to update.').setRequired(true))
+    .addIntegerOption((option) => option.setName('amount').setDescription('Exact XP amount.').setMinValue(0).setMaxValue(9000000000000).setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('level')
+    .setDescription('Set a member directly to an exact level from 0 through 1000.')
+    .addUserOption((option) => option.setName('user').setDescription('Member to update.').setRequired(true))
+    .addIntegerOption((option) => option.setName('level').setDescription('Exact level.').setMinValue(0).setMaxValue(1000).setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('reset')
+    .setDescription('Reset a member to level 0 and remove earned reward roles.')
+    .addUserOption((option) => option.setName('user').setDescription('Member to reset.').setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('sync')
+    .setDescription('Synchronize one member\'s level and activity roles.')
+    .addUserOption((option) => option.setName('user').setDescription('Member to synchronize.').setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('sync-all')
+    .setDescription('Owner only: synchronize every non-bot member.'));
 
 export const ticketCommand = new SlashCommandBuilder()
   .setName('ticket')
@@ -339,7 +376,7 @@ export const recreationCommand = new SlashCommandBuilder()
     .addIntegerOption((option) => option.setName('winners').setDescription('Number of winners.').setMinValue(1).setMaxValue(20))
     .addStringOption((option) => option.setName('description').setDescription('Giveaway details.').setMaxLength(1000))
     .addRoleOption((option) => option.setName('required_role').setDescription('Optional role required to enter.'))
-    .addIntegerOption((option) => option.setName('minimum_level').setDescription('Optional HIT level required to enter.').setMinValue(0).setMaxValue(500))
+    .addIntegerOption((option) => option.setName('minimum_level').setDescription('Optional HIT level required to enter.').setMinValue(0).setMaxValue(1000))
     .addChannelOption((option) => option.setName('channel').setDescription('Optional channel override.').addChannelTypes(ChannelType.GuildText)))
   .addSubcommand((subcommand) => subcommand
     .setName('giveaway-end')
@@ -568,6 +605,7 @@ export const slashCommands = [
   lfgCommand.toJSON(),
   voiceCommand.toJSON(),
   levelCommand.toJSON(),
+  xpCommand.toJSON(),
   recreationCommand.toJSON(),
   communityCommand.toJSON(),
   economyCommand.toJSON(),
