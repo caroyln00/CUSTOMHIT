@@ -73,8 +73,8 @@ function upsertSettings(settings: PassiveSettings): void {
 }
 
 function truncate(value: string, max = 1000): string {
-  const clean = value.replace(/```/g, 'ˋˋˋ').trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean || '(empty)';
+  const clean = value.replace(/```/g, 'Ë‹Ë‹Ë‹').trim();
+  return clean.length > max ? `${clean.slice(0, max - 1)}â€¦` : clean || '(empty)';
 }
 
 async function sendLog(guild: Guild, settings: PassiveSettings, title: string, description: string, color = COLOR): Promise<void> {
@@ -166,35 +166,34 @@ export async function onPassiveMemberJoin(member: GuildMember): Promise<void> {
     const role = await member.guild.roles.fetch(settings.autoroleId).catch(() => null);
     if (role?.editable) await member.roles.add(role, 'HIT passive autorole').catch(() => undefined);
   }
-  if (settings.welcomeEnabled && settings.welcomeChannelId) {
+  if (settings.welcomeChannelId) {
     const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
     if (channel?.isSendable()) {
-      await channel.send({ content: renderTemplate(settings.welcomeMessage, member), allowedMentions: { users: [member.id] } }).catch(() => undefined);
+      await channel.send({
+        content: `<@${member.id}> joined`,
+        allowedMentions: { users: [member.id] },
+      }).catch(() => undefined);
     }
   }
-  const ageDays = Math.floor((Date.now() - member.user.createdTimestamp) / 86_400_000);
-  await sendLog(member.guild, settings, 'MEMBER JOINED', [
-    `Member: <@${member.id}> (${member.id})`,
-    `Account age: ${ageDays} day${ageDays === 1 ? '' : 's'}`,
-    ageDays < 7 ? 'Warning: account is less than seven days old.' : 'Account-age check passed.',
-  ].join('\n'), ageDays < 7 ? WARNING : COLOR);
 }
 
 export async function onPassiveMemberRemove(member: GuildMember): Promise<void> {
   const settings = getSettings(member.guild.id);
-  if (!settings) return;
-  if (settings.goodbyeEnabled && settings.welcomeChannelId) {
-    const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
-    if (channel?.isSendable()) await channel.send(renderTemplate(settings.goodbyeMessage, member)).catch(() => undefined);
+  if (!settings?.welcomeChannelId) return;
+  const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
+  if (channel?.isSendable()) {
+    await channel.send({
+      content: `<@${member.id}> left`,
+      allowedMentions: { users: [member.id] },
+    }).catch(() => undefined);
   }
-  await sendLog(member.guild, settings, 'MEMBER LEFT', `Member: ${member.user.tag} (${member.id})`, WARNING);
 }
 
 export async function handlePassiveMemberUpdate(oldMember: GuildMember, newMember: GuildMember): Promise<void> {
   const settings = getSettings(newMember.guild.id);
   if (!settings?.serverLogsEnabled) return;
   const lines: string[] = [];
-  if (oldMember.nickname !== newMember.nickname) lines.push(`Nickname: **${oldMember.nickname ?? oldMember.user.username}** → **${newMember.nickname ?? newMember.user.username}**`);
+  if (oldMember.nickname !== newMember.nickname) lines.push(`Nickname: **${oldMember.nickname ?? oldMember.user.username}** â†’ **${newMember.nickname ?? newMember.user.username}**`);
   const added = newMember.roles.cache.filter((role) => !oldMember.roles.cache.has(role.id) && role.id !== newMember.guild.id);
   const removed = oldMember.roles.cache.filter((role) => !newMember.roles.cache.has(role.id) && role.id !== newMember.guild.id);
   if (added.size) lines.push(`Roles added: ${added.map((role) => `<@&${role.id}>`).join(', ')}`);

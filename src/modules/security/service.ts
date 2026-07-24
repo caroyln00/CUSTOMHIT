@@ -138,7 +138,7 @@ function securityConfigEmbed(settings: SecuritySettings, trustedUsers: string[])
 function securityStatusEmbed(store: Store, settings: SecuritySettings): EmbedBuilder {
   const lockdown = store.getSecurityLockdown(settings.guildId);
   const lockdownText = lockdown?.active
-    ? `ACTIVE Ã¢â‚¬â€ ${lockdown.expiresAt ? `<t:${Math.floor(lockdown.expiresAt / 1000)}:R>` : 'manual unlock required'}\nReason: ${lockdown.reason}`
+    ? `ACTIVE ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ${lockdown.expiresAt ? `<t:${Math.floor(lockdown.expiresAt / 1000)}:R>` : 'manual unlock required'}\nReason: ${lockdown.reason}`
     : 'Inactive';
   return securityConfigEmbed(settings, store.listSecurityTrustedUsers(settings.guildId))
     .setTitle('HIT SECURITY STATUS')
@@ -728,7 +728,7 @@ export async function handleHitSecurityAdminCommand(
       lockdownMinutes: existing?.lockdownMinutes ?? 10,
     });
     await interaction.reply({
-      content: `Ã¢Å“â€œ HIT security configured in <#${settings.logChannelId}>. Trust staff with \`/security trust\` before bulk server changes.`,
+      content: `ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ HIT security configured in <#${settings.logChannelId}>. Trust staff with \`/security trust\` before bulk server changes.`,
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -758,7 +758,7 @@ export async function handleHitSecurityAdminCommand(
   const embed = new EmbedBuilder()
     .setColor(diagnostics.every((item) => item[1]) ? SUCCESS : DANGER)
     .setTitle('HIT SECURITY DIAGNOSTICS')
-    .setDescription(diagnostics.map(([label, ok, detail]) => `${ok ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} **${label}** Ã¢â‚¬â€ ${detail}`).join('\n'));
+    .setDescription(diagnostics.map(([label, ok, detail]) => `${ok ? 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢'} **${label}** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ${detail}`).join('\n'));
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   return true;
 }
@@ -801,6 +801,19 @@ const ACCESS_AUDIT_BOOSTER_CHANNEL_IDS = [
   '1528860389323051160',
 ] as const;
 
+const ACCESS_POLICY_VISUAL_ROLE_IDS = [
+  '1530042056028983386',
+  '1530042056687353998',
+  '1530042054162513950',
+  '1530080755961561118',
+  '1530094611480051804',
+  '1528837580341252266',
+  '1530080759598153728',
+  '1530080761271812206',
+  '1530080763414843463',
+  '1530094618031558756',
+  '1530094619709149344',
+] as const;
 const ACCESS_AUDIT_WRITE_FLAGS = [
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.SendMessagesInThreads,
@@ -849,7 +862,7 @@ const ACCESS_POLICY_WRITE_CLEAR: PermissionOverwriteOptions = {
 async function applyRestrictedAccessPolicy(
   guild: Guild,
   actorId: string,
-): Promise<{ changed: number; failed: string[] }> {
+): Promise<{ changed: number; visualRolesChanged: number; failed: string[] }> {
   await Promise.all([
     guild.roles.fetch(),
     guild.channels.fetch(),
@@ -858,6 +871,44 @@ async function applyRestrictedAccessPolicy(
   const reason = `HIT restricted-channel access fix by ${actorId}`;
   const failed: string[] = [];
   let changed = 0;
+  let visualRolesChanged = 0;
+
+  for (const roleId of ACCESS_POLICY_VISUAL_ROLE_IDS) {
+    const role = guild.roles.cache.get(roleId);
+
+    if (!role) {
+      failed.push(`${roleId}: visual onboarding role missing`);
+      continue;
+    }
+
+    if (!role.editable) {
+      failed.push(`${role.name} (${roleId}): visual onboarding role is not editable`);
+      continue;
+    }
+
+    try {
+      let roleChanged = false;
+
+      if (role.permissions.bitfield !== 0n) {
+        await role.setPermissions(0n, reason);
+        roleChanged = true;
+      }
+
+      for (const channel of guild.channels.cache.values()) {
+        if (!('permissionOverwrites' in channel)) continue;
+        if (!channel.permissionOverwrites.cache.has(roleId)) continue;
+
+        await channel.permissionOverwrites.delete(roleId, reason);
+        roleChanged = true;
+      }
+
+      if (roleChanged) visualRolesChanged += 1;
+    } catch (error) {
+      failed.push(
+        `${role.name} (${roleId}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   for (const channelId of ACCESS_AUDIT_WRITE_CHANNEL_IDS) {
     const channel = guild.channels.cache.get(channelId);
@@ -966,7 +1017,7 @@ async function applyRestrictedAccessPolicy(
     }
   }
 
-  return { changed, failed };
+  return { changed, visualRolesChanged, failed };
 }
 async function createAccessAuditEmbed(guild: Guild): Promise<EmbedBuilder> {
   await Promise.all([
@@ -1136,14 +1187,14 @@ export async function handleSecuritySlashCommand(
   if (subcommand === 'trust') {
     const user = interaction.options.getUser('user', true);
     store.addSecurityTrustedUser(interaction.guild.id, user.id, interaction.user.id);
-    await interaction.reply({ content: `Ã¢Å“â€œ ${user} is trusted by HIT anti-nuke.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ ${user} is trusted by HIT anti-nuke.`, flags: MessageFlags.Ephemeral });
     return;
   }
   if (subcommand === 'untrust') {
     const user = interaction.options.getUser('user', true);
     if (user.id === interaction.guild.ownerId || user.id === interaction.client.user.id) throw new Error('The server owner and HIT are permanently trusted.');
     const removed = store.removeSecurityTrustedUser(interaction.guild.id, user.id);
-    await interaction.reply({ content: removed ? `Ã¢Å“â€œ Removed ${user} from the trust list.` : `${user} was not on the trust list.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: removed ? `ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Removed ${user} from the trust list.` : `${user} was not on the trust list.`, flags: MessageFlags.Ephemeral });
     return;
   }
   if (subcommand === 'access-fix') {
@@ -1171,7 +1222,8 @@ export async function handleSecuritySlashCommand(
 
     await interaction.editReply({
       content:
-        `Access policy applied to ${result.changed} channel(s). ` +
+        `Access policy applied to ${result.changed} restricted channel(s). ` +
+        `Visual roles corrected: ${result.visualRolesChanged}. ` +
         `Failures: ${result.failed.length}.` +
         (result.failed.length
           ? `\n${result.failed.slice(0, 10).join('\n')}`
@@ -1192,14 +1244,14 @@ export async function handleSecuritySlashCommand(
     const reason = interaction.options.getString('reason', true);
     const minutes = interaction.options.getInteger('minutes') ?? settings.lockdownMinutes;
     const result = await activateLockdown(interaction.guild, settings, store, interaction.user.id, reason, minutes);
-    await interaction.editReply(`Ã¢Å“â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
+    await interaction.editReply(`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
     return;
   }
   if (subcommand === 'unlock') {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const reason = interaction.options.getString('reason', true);
     const result = await deactivateLockdown(interaction.guild, settings, store, interaction.user.id, reason);
-    await interaction.editReply(`Ã¢Å“â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
+    await interaction.editReply(`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
   }
 }
 
@@ -1222,11 +1274,11 @@ export async function handleSecurityPrefixCommand(message: Message, store: Store
   if (!reason) throw new Error(`Usage: ${prefix}${command} reason`);
   if (command === 'lockdown') {
     const result = await activateLockdown(message.guild, settings, store, message.author.id, reason, settings.lockdownMinutes);
-    await message.reply(`Ã¢Å“â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
+    await message.reply(`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Lockdown enabled across ${result.changed} channel(s). Failed: ${result.failed}.`);
     return;
   }
   const result = await deactivateLockdown(message.guild, settings, store, message.author.id, reason);
-  await message.reply(`Ã¢Å“â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
+  await message.reply(`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Restored ${result.restored} channel(s). Failed: ${result.failed}.`);
 }
 
 export function startSecurityWorker(client: Client, store: Store): NodeJS.Timeout {
