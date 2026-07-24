@@ -365,7 +365,7 @@ async function leaderboardEmbed(guild: Guild, store: Store, page: number): Promi
     ? ['No members have earned XP yet.']
     : profiles.map((profile, index) => {
       const position = offset + index + 1;
-      return `**${position}.** <@${profile.userId}> — Level ${levelFromXp(profile.xp)} — ${profile.xp.toLocaleString()} XP`;
+      return `**${position}.** <@${profile.userId}> â€” Level ${levelFromXp(profile.xp)} â€” ${profile.xp.toLocaleString()} XP`;
     });
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -378,7 +378,7 @@ function rewardsEmbed(guild: Guild, store: Store): EmbedBuilder {
   const rewards = store.listLevelRewards(guild.id);
   const description = rewards.length === 0
     ? 'No level reward roles are configured.'
-    : rewards.map((reward) => `Level **${reward.level}** — <@&${reward.roleId}>`).join('\n');
+    : rewards.map((reward) => `Level **${reward.level}** â€” <@&${reward.roleId}>`).join('\n');
   return new EmbedBuilder().setColor(COLOR).setTitle('HIT LEVEL REWARDS').setDescription(description);
 }
 
@@ -409,7 +409,7 @@ export async function handleLevelSlashCommand(interaction: ChatInputCommandInter
 }
 
 function permissionLine(ok: boolean, label: string, detail: string): string {
-  return `${ok ? 'PASS' : 'FAIL'} ${label} — ${detail}`;
+  return `${ok ? 'PASS' : 'FAIL'} ${label} â€” ${detail}`;
 }
 
 async function diagnoseLevels(guild: Guild, settings: LevelSettings, store: Store): Promise<string[]> {
@@ -573,6 +573,46 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
         const removed = store.deleteLevelReward(interaction.guildId, level);
         await interaction.reply({ content: removed ? `Removed the level ${level} reward.` : `No reward was configured for level ${level}.`, flags: MessageFlags.Ephemeral });
       }
+      return true;
+    }
+
+    if (action === 'sync-all') {
+      if (interaction.user.id !== interaction.guild.ownerId) {
+        throw new Error('Only the server owner can synchronize all reward roles.');
+      }
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const members = await interaction.guild.members.fetch();
+      let synchronized = 0;
+      let rolesAdded = 0;
+      const failures: string[] = [];
+
+      for (const member of members.values()) {
+        if (member.user.bot) continue;
+
+        try {
+          const profile = store.getLevelProfile(interaction.guildId, member.id);
+          const added = await syncRewardRoles(
+            member,
+            settings,
+            levelFromXp(profile?.xp ?? 0),
+            store,
+          );
+
+          synchronized += 1;
+          rolesAdded += added.length;
+        } catch (error) {
+          failures.push(
+            `${member.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+
+      await interaction.editReply(
+        `Synchronized reward roles for ${synchronized} member(s). Added ${rolesAdded} role(s). Failures: ${failures.length}.` +
+          (failures.length > 0 ? `\n${failures.slice(0, 10).join('\n')}` : ''),
+      );
+
       return true;
     }
 

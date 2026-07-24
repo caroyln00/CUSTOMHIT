@@ -90,7 +90,7 @@ export const hitCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('levels-config').setDescription('Show the active HIT levels configuration.'))
   .addSubcommand((subcommand) => subcommand
     .setName('levels-manage')
-    .setDescription('Manage XP exclusions, status, or a memberÃ¢â‚¬â„¢s XP.')
+    .setDescription('Manage XP exclusions, status, or a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s XP.')
     .addStringOption((option) => option.setName('action').setDescription('Management action.').setRequired(true).addChoices(
       { name: 'Enable levels', value: 'enable' },
       { name: 'Disable levels', value: 'disable' },
@@ -103,6 +103,7 @@ export const hitCommand = new SlashCommandBuilder()
       { name: 'Set XP', value: 'set-xp' },
       { name: 'Reset user XP', value: 'reset-user' },
       { name: 'Sync user reward roles', value: 'sync-user' },
+        { name: 'Sync all member reward roles', value: 'sync-all' },
       { name: 'Add reward role', value: 'add-reward' },
       { name: 'Remove reward role', value: 'remove-reward' },
       { name: 'List reward roles', value: 'list-rewards' },
@@ -160,7 +161,7 @@ export const modCommand = new SlashCommandBuilder()
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the warning.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('warnings')
-    .setDescription('View a memberÃ¢â‚¬â„¢s active warnings.')
+    .setDescription('View a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s active warnings.')
     .addUserOption((option) => option.setName('user').setDescription('Member to inspect.').setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('clearwarnings')
@@ -175,7 +176,7 @@ export const modCommand = new SlashCommandBuilder()
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the timeout.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('untimeout')
-    .setDescription('Remove a memberÃ¢â‚¬â„¢s timeout.')
+    .setDescription('Remove a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s timeout.')
     .addUserOption((option) => option.setName('user').setDescription('Member whose timeout will be removed.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for removing the timeout.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
@@ -188,7 +189,7 @@ export const modCommand = new SlashCommandBuilder()
     .setDescription('Ban a user after confirmation.')
     .addUserOption((option) => option.setName('user').setDescription('User to ban.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the ban.').setMinLength(2).setMaxLength(500).setRequired(true))
-    .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete 0Ã¢â‚¬â€œ7 days of recent messages.').setMinValue(0).setMaxValue(7)))
+    .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“7 days of recent messages.').setMinValue(0).setMaxValue(7)))
   .addSubcommand((subcommand) => subcommand
     .setName('unban')
     .setDescription('Unban a user by Discord ID.')
@@ -207,7 +208,7 @@ export const modCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('unlock').setDescription('Restore inherited messaging permissions for @everyone.'))
   .addSubcommand((subcommand) => subcommand
     .setName('nick')
-    .setDescription('Change or reset a memberÃ¢â‚¬â„¢s nickname.')
+    .setDescription('Change or reset a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s nickname.')
     .addUserOption((option) => option.setName('user').setDescription('Member to update.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the nickname change.').setMinLength(2).setMaxLength(500).setRequired(true))
     .addStringOption((option) => option.setName('nickname').setDescription('New nickname; omit to reset.').setMaxLength(32)))
@@ -229,7 +230,7 @@ export const modCommand = new SlashCommandBuilder()
     .addIntegerOption((option) => option.setName('id').setDescription('Case ID.').setMinValue(1).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('history')
-    .setDescription('View a memberÃ¢â‚¬â„¢s recent moderation history.')
+    .setDescription('View a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s recent moderation history.')
     .addUserOption((option) => option.setName('user').setDescription('Member to inspect.').setRequired(true))
     .addIntegerOption((option) => option.setName('limit').setDescription('Cases to show.').setMinValue(1).setMaxValue(25)));
 
@@ -299,7 +300,7 @@ export const levelCommand = new SlashCommandBuilder()
   .setDescription('View HIT levels, rankings, and rewards.')
   .addSubcommand((subcommand) => subcommand
     .setName('rank')
-    .setDescription('Show your rank or another memberÃ¢â‚¬â„¢s rank.')
+    .setDescription('Show your rank or another memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s rank.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member to inspect.')))
   .addSubcommand((subcommand) => subcommand
     .setName('leaderboard')
@@ -397,7 +398,7 @@ export const communityCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('starboard-disable').setDescription('Disable new starboard posts while preserving existing records.'))
   .addSubcommand((subcommand) => subcommand
     .setName('economy-manage')
-    .setDescription('Add, remove, or set a memberÃ¢â‚¬â„¢s economy balance.')
+    .setDescription('Add, remove, or set a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s economy balance.')
     .addStringOption((option) => option.setName('action').setDescription('Balance operation.').setRequired(true).addChoices(
       { name: 'Add', value: 'add' },
       { name: 'Remove', value: 'remove' },
@@ -411,7 +412,7 @@ export const economyCommand = new SlashCommandBuilder()
   .setDescription('Use the HIT server economy.')
   .addSubcommand((subcommand) => subcommand
     .setName('balance')
-    .setDescription('Show your balance or another memberÃ¢â‚¬â„¢s balance.')
+    .setDescription('Show your balance or another memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s balance.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member to inspect.')))
   .addSubcommand((subcommand) => subcommand.setName('daily').setDescription('Claim your daily economy reward.'))
   .addSubcommand((subcommand) => subcommand.setName('work').setDescription('Work for a random economy reward.'))
@@ -551,7 +552,7 @@ export const funCommand = new SlashCommandBuilder()
     .addUserOption((option) => option.setName('user').setDescription('Optional member.')))
   .addSubcommand((subcommand) => subcommand
     .setName('avatar')
-    .setDescription('Show a memberÃ¢â‚¬â„¢s avatar.')
+    .setDescription('Show a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s avatar.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member.')));
 
 export const slashCommands = [
