@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   ChannelType,
   ChatInputCommandInteraction,
@@ -78,6 +79,73 @@ async function sendLevelLog(
   }).catch(() => undefined);
 }
 
+
+type ActivityRank = {
+  name: string;
+  unlockLevel: number;
+  roleId: string;
+};
+
+function loadActivityRanks(): ActivityRank[] {
+  const filePath =
+    process.env.ACTIVITY_RANKS_PATH?.trim() ||
+    '/app/data/activity-ranks.json';
+
+  try {
+    const parsed = JSON.parse(
+      readFileSync(filePath, 'utf8')
+    ) as unknown;
+
+    const record =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+
+    const rows = Array.isArray(parsed)
+      ? parsed
+      : [
+          record.activityRanks,
+          record.activity_roles,
+          record.activityRoles,
+          record.ranks,
+          record.roles,
+        ].find(Array.isArray) ?? [];
+
+    return rows
+      .map((row): ActivityRank | null => {
+        if (!row || typeof row !== 'object') return null;
+
+        const value = row as Record<string, unknown>;
+        const unlockLevel = Number(value.unlockLevel);
+        const roleId =
+          typeof value.roleId === 'string'
+            ? value.roleId.trim()
+            : '';
+
+        if (
+          !Number.isInteger(unlockLevel) ||
+          unlockLevel < 1 ||
+          !/^\d{17,20}$/.test(roleId)
+        ) {
+          return null;
+        }
+
+        return {
+          name:
+            typeof value.name === 'string'
+              ? value.name
+              : roleId,
+          unlockLevel,
+          roleId,
+        };
+      })
+      .filter((rank): rank is ActivityRank => rank !== null)
+      .sort((a, b) => a.unlockLevel - b.unlockLevel);
+  } catch {
+    return [];
+  }
+}
+
 async function syncRewardRoles(
   member: GuildMember,
   settings: LevelSettings,
@@ -85,7 +153,11 @@ async function syncRewardRoles(
   store: Store,
 ): Promise<string[]> {
   const rewards = store.listLevelRewards(member.guild.id);
-  if (rewards.length === 0) return [];
+  const activityRanks = loadActivityRanks();
+
+  if (rewards.length === 0 && activityRanks.length === 0) {
+    return [];
+  }
 
   const eligible = rewards.filter((reward) => reward.level <= level);
   const desiredIds = new Set<string>();
@@ -96,7 +168,16 @@ async function syncRewardRoles(
     if (highest) desiredIds.add(highest.roleId);
   }
 
-  const rewardIds = new Set(rewards.map((reward) => reward.roleId));
+  for (const rank of activityRanks) {
+    if (rank.unlockLevel <= level) {
+      desiredIds.add(rank.roleId);
+    }
+  }
+
+  const rewardIds = new Set([
+    ...rewards.map((reward) => reward.roleId),
+    ...activityRanks.map((rank) => rank.roleId),
+  ]);
   const added: string[] = [];
   for (const roleId of desiredIds) {
     if (member.roles.cache.has(roleId)) continue;
