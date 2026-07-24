@@ -1,8 +1,8 @@
 {
   "name": "hit-private-all-in-one",
-  "version": "7.56.0",
+  "version": "97.21.43",
   "private": true,
-  "description": "HIT v7.56.0: private all-in-one Discord bot with production cloud deployment for 24/7 moderation.",
+  "description": "HIT v97.21.43: private all-in-one Discord bot with production cloud deployment for 24/7 moderation.",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"

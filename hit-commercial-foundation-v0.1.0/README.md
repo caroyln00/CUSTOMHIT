@@ -1,4 +1,4 @@
-# HIT v7.56.0
+# HIT v97.21.43
 
 HIT is a private all-in-one Discord bot with one universal prefix: `;`.
 

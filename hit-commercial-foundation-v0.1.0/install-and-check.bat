@@ -19,7 +19,7 @@ echo Running tests...
 call npm test || goto :fail
 
 echo.
-echo HIT v7.56.0 checks passed.
+echo HIT v97.21.43 checks passed.
 pause
 exit /b 0
 

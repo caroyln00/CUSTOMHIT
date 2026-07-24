@@ -1,0 +1,24 @@
+{
+    "product":  "HIT",
+    "version":  "97.21.43",
+    "synchronizedAtUtc":  "2026-07-24T00:37:27.2483071Z",
+    "components":  {
+                       "core":  "97.21.43",
+                       "commands":  "97.21.43",
+                       "deployment":  "97.21.43",
+                       "documentation":  "97.21.43",
+                       "tests":  "97.21.43",
+                       "community":  "97.21.43",
+                       "diagnostics":  "97.21.43",
+                       "fun":  "97.21.43",
+                       "levels":  "97.21.43",
+                       "lfg":  "97.21.43",
+                       "moderation":  "97.21.43",
+                       "passive":  "97.21.43",
+                       "recreation":  "97.21.43",
+                       "security":  "97.21.43",
+                       "tickets":  "97.21.43",
+                       "verification":  "97.21.43",
+                       "voice":  "97.21.43"
+                   }
+}

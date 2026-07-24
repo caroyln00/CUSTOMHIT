@@ -1,4 +1,4 @@
-# HIT Security Model — v7.56.0
+# HIT Security Model — v97.21.43
 
 ## Trust boundaries
 
@@ -32,7 +32,7 @@ The anti-phishing module uses local high-confidence patterns for known IP-grabbe
 - Test lockdown restoration before enabling automatic lockdown.
 - Use a separate test server for anti-nuke drills.
 
-## v7.56.0 community safeguards
+## v97.21.43 community safeguards
 
 - economy claims and transfers use immediate SQLite transactions to prevent double claims and overspending
 - balances cannot become negative

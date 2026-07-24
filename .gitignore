@@ -1,4 +1,4 @@
-﻿.env
+.env
 .env.*
 !.env.example
 data/
@@ -7,3 +7,12 @@ dist/
 coverage/
 *.zip
 hit-v*/
+*.sqlite
+*.sqlite-*
+build/
+*.log
+*-backup-*/
+version-sync-backup-*/
+version-backup-*/
+passive-fun-backup-*/
+hotfix-backup-*/

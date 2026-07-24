@@ -1,6 +1,6 @@
 # HIT Feature-Parity Checklist
 
-## Already inside HIT v7.56.0
+## Already inside HIT v97.21.43
 
 - Verification, NV/YV role flow, CAPTCHA, account-age checks, lockouts
 - Ticket panels, private tickets, claims, transcripts, closing and reopening

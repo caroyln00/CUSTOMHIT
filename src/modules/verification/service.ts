@@ -349,7 +349,7 @@ export async function handlePrefixCommand(message: Message, store: Store, defaul
   if (!command) return;
 
   if (command === 'version') {
-    await message.reply('HIT v7.56.0');
+    await message.reply('HIT v97.21.43');
     return;
   }
   if (command === 'ping') {
@@ -357,7 +357,7 @@ export async function handlePrefixCommand(message: Message, store: Store, defaul
     return;
   }
   if (command === 'help') {
-    await message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('HIT v7.56.0 COMMANDS').setDescription([
+    await message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('HIT v97.21.43 COMMANDS').setDescription([
       `\`${prefix}help\` — show commands`,
       `\`${prefix}version\` — show the running HIT version`,
       `\`${prefix}ping\` — connection check`,

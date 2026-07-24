@@ -1,0 +1,92 @@
+HIT VERSION SYNCHRONIZATION REPORT
+Product version: v97.21.43
+Previous root version: v7.56.0
+Completed UTC: 2026-07-24T00:37:29.6679126Z
+
+Synchronized components:
+ - core: 97.21.43
+ - commands: 97.21.43
+ - deployment: 97.21.43
+ - documentation: 97.21.43
+ - tests: 97.21.43
+ - community: 97.21.43
+ - diagnostics: 97.21.43
+ - fun: 97.21.43
+ - levels: 97.21.43
+ - lfg: 97.21.43
+ - moderation: 97.21.43
+ - passive: 97.21.43
+ - recreation: 97.21.43
+ - security: 97.21.43
+ - tickets: 97.21.43
+ - verification: 97.21.43
+ - voice: 97.21.43
+
+External dependency versions were preserved.
+Existing folder names were preserved so paths and deployment remain functional.
+
+Changed files:
+ - CLOUD-DEPLOYMENT-24-7.md
+ - COMMUNITY-SETUP-INFO.txt
+ - FEATURE-PARITY-CHECKLIST.md
+ - hit-commercial-foundation-v0.1.0\CLOUD-DEPLOYMENT-24-7.md
+ - hit-commercial-foundation-v0.1.0\COMMUNITY-SETUP-INFO.txt
+ - hit-commercial-foundation-v0.1.0\FEATURE-PARITY-CHECKLIST.md
+ - hit-commercial-foundation-v0.1.0\hit-v0.1.1-hotfix\HOTFIX-INSTRUCTIONS.txt
+ - hit-commercial-foundation-v0.1.0\hit-v0.2.0-tickets-update\install-and-check.bat
+ - hit-commercial-foundation-v0.1.0\hit-v0.2.0-tickets-update\package.json
+ - hit-commercial-foundation-v0.1.0\hit-v0.2.0-tickets-update\UPDATE-INSTRUCTIONS.md
+ - hit-commercial-foundation-v0.1.0\hit-v0.3.0-moderation-update\install-and-check.bat
+ - hit-commercial-foundation-v0.1.0\hit-v0.3.0-moderation-update\package.json
+ - hit-commercial-foundation-v0.1.0\hit-v0.3.0-moderation-update\UPDATE-INSTRUCTIONS.md
+ - hit-commercial-foundation-v0.1.0\hit-v0.5.3-lfg-no-emojis-hotfix\UPDATE-INSTRUCTIONS.txt
+ - hit-commercial-foundation-v0.1.0\hit-v0.8.1-attending-labels-hotfix\INSTALL.txt
+ - hit-commercial-foundation-v0.1.0\HIT-VERSION.txt
+ - hit-commercial-foundation-v0.1.0\HOTFIX-INSTRUCTIONS.txt
+ - hit-commercial-foundation-v0.1.0\INSTALL.txt
+ - hit-commercial-foundation-v0.1.0\install-and-check.bat
+ - hit-commercial-foundation-v0.1.0\package.json
+ - hit-commercial-foundation-v0.1.0\package-lock.json
+ - hit-commercial-foundation-v0.1.0\PRODUCT-ROADMAP.md
+ - hit-commercial-foundation-v0.1.0\README.md
+ - hit-commercial-foundation-v0.1.0\RECREATION-SETUP-INFO.txt
+ - hit-commercial-foundation-v0.1.0\SECURITY.md
+ - hit-commercial-foundation-v0.1.0\UPDATE-INSTRUCTIONS.md
+ - hit-commercial-foundation-v0.1.0\UPDATE-INSTRUCTIONS.txt
+ - HIT-COMPONENT-VERSIONS.json
+ - hit-v0.1.1-hotfix\HOTFIX-INSTRUCTIONS.txt
+ - hit-v0.2.0-tickets-update\install-and-check.bat
+ - hit-v0.2.0-tickets-update\package.json
+ - hit-v0.2.0-tickets-update\UPDATE-INSTRUCTIONS.md
+ - hit-v0.3.0-moderation-update\install-and-check.bat
+ - hit-v0.3.0-moderation-update\package.json
+ - hit-v0.3.0-moderation-update\UPDATE-INSTRUCTIONS.md
+ - hit-v0.5.3-lfg-no-emojis-hotfix\UPDATE-INSTRUCTIONS.txt
+ - hit-v0.8.1-attending-labels-hotfix\INSTALL.txt
+ - HIT-VERSION.txt
+ - HOTFIX-INSTRUCTIONS.txt
+ - INSTALL.txt
+ - install-and-check.bat
+ - package.json
+ - package-lock.json
+ - PRODUCT-ROADMAP.md
+ - README.md
+ - RECREATION-SETUP-INFO.txt
+ - SECURITY.md
+ - src\core\hit-version.ts
+ - src\index.ts
+ - src\modules\community\VERSION.txt
+ - src\modules\diagnostics\VERSION.txt
+ - src\modules\fun\VERSION.txt
+ - src\modules\levels\VERSION.txt
+ - src\modules\lfg\VERSION.txt
+ - src\modules\moderation\VERSION.txt
+ - src\modules\passive\VERSION.txt
+ - src\modules\recreation\VERSION.txt
+ - src\modules\security\VERSION.txt
+ - src\modules\tickets\VERSION.txt
+ - src\modules\verification\service.ts
+ - src\modules\verification\VERSION.txt
+ - src\modules\voice\VERSION.txt
+ - UPDATE-INSTRUCTIONS.md
+ - UPDATE-INSTRUCTIONS.txt

@@ -1,4 +1,4 @@
-HIT v0.3.1 Moderation Syntax Hotfix
+HIT v97.21.43 Moderation Syntax Hotfix
 
 Fixes TypeScript TS1127 Invalid character at:
 src/modules/verification/service.ts:367

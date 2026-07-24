@@ -143,6 +143,9 @@ async function setupCommunity(interaction: ChatInputCommandInteraction, store: S
   const workMin = interaction.options.getInteger('work_min') ?? existing?.workMin ?? 50;
   const workMax = interaction.options.getInteger('work_max') ?? existing?.workMax ?? 150;
   if (workMin > workMax) throw new Error('Work minimum cannot exceed work maximum.');
+  if (countingChannel && starboardChannel && countingChannel.id === starboardChannel.id) {
+    throw new Error('Counting and starboard must use different channels.');
+  }
   const emoji = interaction.options.getString('star_emoji')?.trim() || existing?.starEmoji || '⭐';
   if (!normalizeEmoji(emoji)) throw new Error('Star reaction cannot be empty.');
   const settings = store.upsertCommunitySettings({
@@ -342,8 +345,6 @@ export async function handleCommunityMessage(message: Message, store: Store): Pr
   const settings = store.getCommunitySettings(message.guild.id);
   if (!settings?.countingChannelId || message.channelId !== settings.countingChannelId) return false;
   const content = message.content.trim();
-  const sharedChannel = settings.countingChannelId === settings.starboardChannelId;
-  if (sharedChannel && !/^\d+$/.test(content)) return false;
   const validInteger = /^\d+$/.test(content);
   const number = validInteger ? Number(content) : Number.NaN;
   if (!validInteger || !Number.isSafeInteger(number) || number < 1) {
@@ -417,6 +418,7 @@ export async function handleStarboardReaction(reaction: MessageReaction, store: 
   if (!message.guild || message.author.bot) return;
   const settings = store.getCommunitySettings(message.guild.id);
   if (!settings?.starboardChannelId) return;
+  if (message.channelId === settings.starboardChannelId) return;
   const sourceChannel = await message.guild.channels.fetch(message.channelId).catch(() => null);
   if (!sourceChannel || !('permissionsFor' in sourceChannel)) return;
   if (!sourceChannel.permissionsFor(message.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) return;

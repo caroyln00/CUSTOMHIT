@@ -1,4 +1,4 @@
-HIT v7.56.0 GIVEAWAYS AND EVENTS
+HIT v97.21.43 GIVEAWAYS AND EVENTS
 
 Setup commands:
 /recreation setup

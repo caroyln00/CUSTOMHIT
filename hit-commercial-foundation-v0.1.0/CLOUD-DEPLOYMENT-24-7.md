@@ -1,4 +1,4 @@
-# HIT v7.56.0 — 24/7 Cloud Deployment
+# HIT v97.21.43 — 24/7 Cloud Deployment
 
 This package is prepared for Railway using Docker. After deployment, HIT runs on Railway instead of the home computer, so verification, tickets, moderation, security, anti-spam, anti-phishing, anti-raid, anti-nuke, LFG, temporary voice rooms, levels, giveaways, events, economy, counting, and starboard continue while the computer is off.
 

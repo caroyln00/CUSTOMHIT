@@ -2,7 +2,7 @@
 
 ## Current release
 
-- [x] v7.56.0 Consolidated all-in-one production build
+- [x] v97.21.43 Consolidated all-in-one production build
 
 ## Included systems
 

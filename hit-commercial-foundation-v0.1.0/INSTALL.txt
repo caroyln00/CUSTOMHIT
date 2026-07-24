@@ -1,4 +1,4 @@
-HIT v0.8.2 EXISTING EVENT REFRESH HOTFIX
+HIT v97.21.43 EXISTING EVENT REFRESH HOTFIX
 
 This hotfix changes event labels to:
 - Attending

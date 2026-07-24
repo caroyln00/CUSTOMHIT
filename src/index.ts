@@ -4,6 +4,7 @@ import {
   GatewayIntentBits,
   MessageFlags,
   Partials,
+  type MessageReaction,
 } from 'discord.js';
 import { env } from './core/env.js';
 import { logger } from './core/logger.js';
@@ -75,6 +76,19 @@ import {
 } from './modules/recreation/service.js';
 
 import {
+  handlePassiveChannelEvent,
+  handlePassiveMemberUpdate,
+  handlePassiveMessage,
+  handlePassiveMessageDelete,
+  handlePassiveMessageUpdate,
+  handlePassiveRoleEvent,
+  handlePassiveSlashCommand,
+  onPassiveMemberJoin,
+  onPassiveMemberRemove,
+} from './modules/passive/service.js';
+import { handleFunSlashCommand } from './modules/fun/service.js';
+
+import {
   handleGuidedLfgChannelMessage,
   handleHitLfgAdminCommand,
   handleLfgInteraction,
@@ -83,7 +97,7 @@ import {
   startLfgWorker,
 } from './modules/lfg/service.js';
 
-const HIT_VERSION = '7.56.0';
+const HIT_VERSION = '97.21.43';
 
 const store = new Store(env.databasePath);
 const client = new Client({
@@ -112,7 +126,7 @@ client.once(Events.ClientReady, (readyClient) => {
     version: HIT_VERSION,
     guilds: readyClient.guilds.cache.size,
     prefix: env.defaultPrefix,
-    modules: ['verification', 'tickets', 'moderation', 'security', 'lfg', 'voice', 'levels', 'recreation', 'economy', 'counting', 'starboard'],
+    modules: ['verification', 'tickets', 'moderation', 'security', 'passive', 'fun', 'lfg', 'voice', 'levels', 'recreation', 'economy', 'counting', 'starboard'],
   });
   readyClient.user.setPresence({ activities: [{ name: `HIT v${HIT_VERSION} | ${env.defaultPrefix}help` }], status: 'online' });
   timeoutWorker = startVerificationTimeoutWorker(client, store);
@@ -125,6 +139,7 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.GuildMemberAdd, async (member) => {
   await onSecurityMemberJoin(member, store);
+  await onPassiveMemberJoin(member);
   await onMemberJoin(member, store);
 });
 
@@ -132,6 +147,7 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     if (await handleGuidedLfgChannelMessage(message)) return;
     if (await handleSecurityMessage(message, store)) return;
+    if (await handlePassiveMessage(message)) return;
     if (await handleCommunityMessage(message, store)) return;
     await handleLevelsMessage(message, store, env.defaultPrefix);
     await handlePrefixCommand(message, store, env.defaultPrefix);
@@ -198,6 +214,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleRecreationSlashCommand(interaction, store);
       return;
     }
+    if (interaction.isChatInputCommand() && interaction.commandName === 'passive') {
+      await handlePassiveSlashCommand(interaction);
+      return;
+    }
+    if (interaction.isChatInputCommand() && interaction.commandName === 'fun') {
+      await handleFunSlashCommand(interaction);
+      return;
+    }
     if (interaction.isChatInputCommand() && ['community', 'economy', 'counting', 'starboard'].includes(interaction.commandName)) {
       await handleCommunitySlashCommand(interaction, store);
     }
@@ -216,7 +240,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.MessageReactionAdd, async (reaction) => {
   try {
-    await handleStarboardReaction(reaction, store);
+    const fullReaction = reaction.partial ? await reaction.fetch() : (reaction as MessageReaction);
+    await handleStarboardReaction(fullReaction, store);
   } catch (error) {
     logger.error('Starboard reaction-add handler failed', { guildId: reaction.message.guildId ?? undefined, error: String(error) });
   }
@@ -224,7 +249,8 @@ client.on(Events.MessageReactionAdd, async (reaction) => {
 
 client.on(Events.MessageReactionRemove, async (reaction) => {
   try {
-    await handleStarboardReaction(reaction, store);
+    const fullReaction = reaction.partial ? await reaction.fetch() : (reaction as MessageReaction);
+    await handleStarboardReaction(fullReaction, store);
   } catch (error) {
     logger.error('Starboard reaction-remove handler failed', { guildId: reaction.message.guildId ?? undefined, error: String(error) });
   }
@@ -246,8 +272,9 @@ client.on(Events.MessageReactionRemoveEmoji, async (reaction) => {
   }
 });
 
-client.on(Events.MessageUpdate, async (_oldMessage, newMessage) => {
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   try {
+    await handlePassiveMessageUpdate(oldMessage, newMessage);
     await handleCommunityMessageUpdate(newMessage, store);
   } catch (error) {
     logger.error('Counting message-update handler failed', { guildId: newMessage.guildId ?? undefined, error: String(error) });
@@ -256,10 +283,61 @@ client.on(Events.MessageUpdate, async (_oldMessage, newMessage) => {
 
 client.on(Events.MessageDelete, async (message) => {
   try {
+    await handlePassiveMessageDelete(message);
     await handleCommunityMessageDelete(message, store);
   } catch (error) {
     logger.error('Starboard message-delete handler failed', { guildId: message.guildId ?? undefined, error: String(error) });
   }
+});
+
+client.on(Events.GuildMemberRemove, async (member) => {
+  try {
+    await onPassiveMemberRemove(member as import('discord.js').GuildMember);
+  } catch (error) {
+    logger.error('Passive member-remove handler failed', { guildId: member.guild.id, userId: member.id, error: String(error) });
+  }
+});
+
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  if (!('roles' in oldMember)) return;
+  try {
+    await handlePassiveMemberUpdate(oldMember as import('discord.js').GuildMember, newMember);
+  } catch (error) {
+    logger.error('Passive member-update handler failed', { guildId: newMember.guild.id, userId: newMember.id, error: String(error) });
+  }
+});
+
+client.on(Events.ChannelCreate, async (channel) => {
+  if (channel.isDMBased()) return;
+  try { await handlePassiveChannelEvent('created', channel); }
+  catch (error) { logger.error('Passive channel-create handler failed', { guildId: channel.guild.id, error: String(error) }); }
+});
+
+client.on(Events.ChannelDelete, async (channel) => {
+  if (channel.isDMBased()) return;
+  try { await handlePassiveChannelEvent('deleted', channel); }
+  catch (error) { logger.error('Passive channel-delete handler failed', { guildId: channel.guild.id, error: String(error) }); }
+});
+
+client.on(Events.ChannelUpdate, async (_oldChannel, newChannel) => {
+  if (newChannel.isDMBased()) return;
+  try { await handlePassiveChannelEvent('updated', newChannel); }
+  catch (error) { logger.error('Passive channel-update handler failed', { guildId: newChannel.guild.id, error: String(error) }); }
+});
+
+client.on(Events.GuildRoleCreate, async (role) => {
+  try { await handlePassiveRoleEvent('created', role); }
+  catch (error) { logger.error('Passive role-create handler failed', { guildId: role.guild.id, error: String(error) }); }
+});
+
+client.on(Events.GuildRoleDelete, async (role) => {
+  try { await handlePassiveRoleEvent('deleted', role); }
+  catch (error) { logger.error('Passive role-delete handler failed', { guildId: role.guild.id, error: String(error) }); }
+});
+
+client.on(Events.GuildRoleUpdate, async (_oldRole, newRole) => {
+  try { await handlePassiveRoleEvent('updated', newRole); }
+  catch (error) { logger.error('Passive role-update handler failed', { guildId: newRole.guild.id, error: String(error) }); }
 });
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {

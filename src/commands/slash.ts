@@ -458,6 +458,90 @@ export const securityCommand = new SlashCommandBuilder()
     .setDescription('Remove a staff account from the anti-nuke trust list.')
     .addUserOption((option) => option.setName('user').setDescription('Account to remove.').setRequired(true)));
 
+
+export const passiveCommand = new SlashCommandBuilder()
+  .setName('passive')
+  .setDescription('Configure HIT passive automod, logging, welcome, goodbye, and autorole systems.')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addSubcommand((subcommand) => subcommand
+    .setName('setup')
+    .setDescription('Configure passive protection and server automation.')
+    .addChannelOption((option) => option.setName('log_channel').setDescription('Private channel for passive logs and automod actions.').addChannelTypes(ChannelType.GuildText).setRequired(true))
+    .addChannelOption((option) => option.setName('welcome_channel').setDescription('Optional public welcome and goodbye channel.').addChannelTypes(ChannelType.GuildText))
+    .addRoleOption((option) => option.setName('autorole').setDescription('Optional role automatically given to new members.'))
+    .addBooleanOption((option) => option.setName('welcome').setDescription('Send welcome messages.'))
+    .addBooleanOption((option) => option.setName('goodbye').setDescription('Send goodbye messages.'))
+    .addBooleanOption((option) => option.setName('message_logs').setDescription('Log edited and deleted messages.'))
+    .addBooleanOption((option) => option.setName('server_logs').setDescription('Log member, role, and channel changes.'))
+    .addBooleanOption((option) => option.setName('anti_caps').setDescription('Remove excessive all-caps messages.'))
+    .addBooleanOption((option) => option.setName('anti_emoji').setDescription('Remove excessive emoji spam.'))
+    .addBooleanOption((option) => option.setName('anti_invites').setDescription('Remove Discord invite links from non-staff.'))
+    .addBooleanOption((option) => option.setName('anti_attachments').setDescription('Remove potentially dangerous executable attachments.'))
+    .addBooleanOption((option) => option.setName('anti_repeat').setDescription('Remove repeated-character spam.'))
+    .addIntegerOption((option) => option.setName('caps_percent').setDescription('Uppercase percentage that triggers automod.').setMinValue(50).setMaxValue(100))
+    .addIntegerOption((option) => option.setName('emoji_limit').setDescription('Maximum emojis allowed in one message.').setMinValue(1).setMaxValue(50))
+    .addStringOption((option) => option.setName('welcome_message').setDescription('Supports {user}, {username}, {server}, and {membercount}.').setMaxLength(1000))
+    .addStringOption((option) => option.setName('goodbye_message').setDescription('Supports {username}, {server}, and {membercount}.').setMaxLength(1000)))
+  .addSubcommand((subcommand) => subcommand.setName('status').setDescription('Show the active passive configuration.'))
+  .addSubcommand((subcommand) => subcommand.setName('disable').setDescription('Disable all passive systems while preserving settings.'));
+
+export const funCommand = new SlashCommandBuilder()
+  .setName('fun')
+  .setDescription('Games, randomizers, social commands, and entertainment.')
+  .addSubcommand((subcommand) => subcommand
+    .setName('8ball')
+    .setDescription('Ask the magic 8-ball a question.')
+    .addStringOption((option) => option.setName('question').setDescription('Your question.').setRequired(true).setMaxLength(500)))
+  .addSubcommand((subcommand) => subcommand.setName('coinflip').setDescription('Flip a coin.'))
+  .addSubcommand((subcommand) => subcommand
+    .setName('dice')
+    .setDescription('Roll one or more dice.')
+    .addIntegerOption((option) => option.setName('sides').setDescription('Sides per die.').setMinValue(2).setMaxValue(1000))
+    .addIntegerOption((option) => option.setName('count').setDescription('Number of dice.').setMinValue(1).setMaxValue(20)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('choose')
+    .setDescription('Choose one option from a list separated with |.')
+    .addStringOption((option) => option.setName('options').setDescription('Example: red | blue | green').setRequired(true).setMaxLength(1500)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('random')
+    .setDescription('Generate a random whole number.')
+    .addIntegerOption((option) => option.setName('min').setDescription('Minimum value.').setMinValue(-1000000000).setMaxValue(1000000000))
+    .addIntegerOption((option) => option.setName('max').setDescription('Maximum value.').setMinValue(-1000000000).setMaxValue(1000000000)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('rate')
+    .setDescription('Rate anything from 0 to 100.')
+    .addStringOption((option) => option.setName('thing').setDescription('Thing to rate.').setRequired(true).setMaxLength(200)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('ship')
+    .setDescription('Calculate a fun compatibility score.')
+    .addUserOption((option) => option.setName('first').setDescription('First person.').setRequired(true))
+    .addUserOption((option) => option.setName('second').setDescription('Second person.').setRequired(true)))
+  .addSubcommand((subcommand) => subcommand
+    .setName('rps')
+    .setDescription('Play rock-paper-scissors against HIT.')
+    .addStringOption((option) => option.setName('choice').setDescription('Your move.').setRequired(true).addChoices(
+      { name: 'Rock', value: 'rock' },
+      { name: 'Paper', value: 'paper' },
+      { name: 'Scissors', value: 'scissors' },
+    )))
+  .addSubcommand((subcommand) => subcommand.setName('slots').setDescription('Spin the HIT slot machine.'))
+  .addSubcommand((subcommand) => subcommand.setName('trivia').setDescription('Get a random trivia question with a hidden answer.'))
+  .addSubcommand((subcommand) => subcommand.setName('wyr').setDescription('Get a random would-you-rather question.'))
+  .addSubcommand((subcommand) => subcommand.setName('truth').setDescription('Get a random truth question.'))
+  .addSubcommand((subcommand) => subcommand.setName('dare').setDescription('Get a random safe dare.'))
+  .addSubcommand((subcommand) => subcommand
+    .setName('compliment')
+    .setDescription('Compliment yourself or another member.')
+    .addUserOption((option) => option.setName('user').setDescription('Optional member.')))
+  .addSubcommand((subcommand) => subcommand
+    .setName('roast')
+    .setDescription('Give yourself or another member a playful roast.')
+    .addUserOption((option) => option.setName('user').setDescription('Optional member.')))
+  .addSubcommand((subcommand) => subcommand
+    .setName('avatar')
+    .setDescription('Show a member’s avatar.')
+    .addUserOption((option) => option.setName('user').setDescription('Optional member.')));
+
 export const slashCommands = [
   hitCommand.toJSON(),
   ticketCommand.toJSON(),
@@ -471,4 +555,6 @@ export const slashCommands = [
   economyCommand.toJSON(),
   countingCommand.toJSON(),
   starboardCommand.toJSON(),
+  passiveCommand.toJSON(),
+  funCommand.toJSON(),
 ];
