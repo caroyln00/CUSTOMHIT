@@ -600,26 +600,31 @@ export const funCommand = new SlashCommandBuilder()
 
 export const nameSweepCommand = new SlashCommandBuilder()
   .setName('namesweep')
-  .setDescription('Generate locally ranked short-name candidates.')
+  .setDescription('Generate mathematically ranked short-name candidates.')
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addStringOption((option) => option
     .setName('category')
     .setDescription('Candidate format.')
     .setRequired(true)
     .addChoices(
+      { name: '2 characters', value: '2c' },
+      { name: '2 letters', value: '2l' },
+      { name: '2 letters pronounceable', value: '2lp' },
+      { name: '2 digits', value: '2n' },
       { name: '3 characters', value: '3c' },
       { name: '3 letters', value: '3l' },
       { name: '3 letters pronounceable', value: '3lp' },
+      { name: '3 digits', value: '3n' },
       { name: '4 characters', value: '4c' },
       { name: '4 letters', value: '4l' },
       { name: '4 letters pronounceable', value: '4lp' },
+      { name: '4 digits', value: '4n' },
     ))
   .addIntegerOption((option) => option
     .setName('count')
-    .setDescription('Number of ranked candidates to display.')
+    .setDescription('Ranked candidates from 1 to 1000.')
     .setMinValue(1)
-    .setMaxValue(50));
-
+    .setMaxValue(1000));
 export const slashCommands = [
   hitCommand.toJSON(),
   ticketCommand.toJSON(),
