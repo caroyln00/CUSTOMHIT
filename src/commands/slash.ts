@@ -625,6 +625,46 @@ export const nameSweepCommand = new SlashCommandBuilder()
     .setDescription('Ranked candidates from 1 to 1000.')
     .setMinValue(1)
     .setMaxValue(1000));
+
+export const nameCheckCommand = new SlashCommandBuilder()
+  .setName('namecheck')
+  .setDescription('Check a custom username across major public platforms.')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addStringOption((option) => option
+    .setName('username')
+    .setDescription('Exact username, handle, gamertag, or profile slug.')
+    .setRequired(true)
+    .setMinLength(1)
+    .setMaxLength(64))
+  .addStringOption((option) => option
+    .setName('platform')
+    .setDescription('Platform to inspect. Defaults to all.')
+    .addChoices(
+      { name: 'All supported platforms', value: 'all' },
+      { name: 'Discord visible users', value: 'discord' },
+      { name: 'GitHub', value: 'github' },
+      { name: 'Reddit', value: 'reddit' },
+      { name: 'Roblox', value: 'roblox' },
+      { name: 'Twitch', value: 'twitch' },
+      { name: 'YouTube', value: 'youtube' },
+      { name: 'Steam', value: 'steam' },
+      { name: 'Bluesky', value: 'bluesky' },
+      { name: 'Xbox', value: 'xbox' },
+      { name: 'PlayStation', value: 'playstation' },
+      { name: 'X / Twitter', value: 'x' },
+      { name: 'Instagram', value: 'instagram' },
+      { name: 'TikTok', value: 'tiktok' },
+      { name: 'Threads', value: 'threads' },
+      { name: 'Facebook', value: 'facebook' },
+      { name: 'Snapchat', value: 'snapchat' },
+      { name: 'Pinterest', value: 'pinterest' },
+      { name: 'Tumblr', value: 'tumblr' },
+      { name: 'SoundCloud', value: 'soundcloud' },
+      { name: 'Kick', value: 'kick' },
+      { name: 'LinkedIn', value: 'linkedin' },
+      { name: 'Telegram', value: 'telegram' },
+    ));
+
 export const slashCommands = [
   hitCommand.toJSON(),
   ticketCommand.toJSON(),
@@ -642,4 +682,5 @@ export const slashCommands = [
   passiveCommand.toJSON(),
   funCommand.toJSON(),
   nameSweepCommand.toJSON(),
+  nameCheckCommand.toJSON(),
 ];

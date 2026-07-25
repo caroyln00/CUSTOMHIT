@@ -1,4 +1,4 @@
-﻿import {
+import {
   AttachmentBuilder,
   EmbedBuilder,
   MessageFlags,
@@ -10,6 +10,11 @@ import {
   getTopCandidates,
   isNameSweepCategory,
 } from './generator.js';
+import {
+  checkExternalPlatforms,
+  isNameCheckPlatform,
+  type PlatformLookupResult,
+} from './platforms.js';
 
 const COLOR = 0x7c3aed;
 const PREVIEW_LIMIT = 25;
@@ -171,5 +176,102 @@ export async function handleNameSweepSlashCommand(
   await interaction.editReply({
     embeds: [embed],
     files,
+  });
+}
+
+const LOOKUP_STATUS_LABELS: Record<PlatformLookupResult['status'], string> = {
+  found: 'FOUND / TAKEN',
+  not_found: 'NO PUBLIC ACCOUNT',
+  unknown: 'UNKNOWN',
+  invalid: 'INVALID NAME',
+  error: 'CHECK FAILED',
+};
+
+function formatLookupLine(result: PlatformLookupResult): string {
+  const profile = result.profileUrl
+    ? ` [Open](${result.profileUrl})`
+    : '';
+
+  return `**${result.label}: ${LOOKUP_STATUS_LABELS[result.status]}**${profile}`;
+}
+
+export async function handleNameCheckSlashCommand(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  const username = interaction.options
+    .getString('username', true)
+    .replace(/[\r\n\t]/g, ' ')
+    .trim();
+
+  const rawPlatform = interaction.options.getString('platform') ?? 'all';
+
+  if (username.length < 1 || username.length > 64) {
+    throw new Error('The username must contain between 1 and 64 characters.');
+  }
+
+  if (!isNameCheckPlatform(rawPlatform)) {
+    throw new Error('Choose a valid lookup platform.');
+  }
+
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral,
+  });
+
+  const results: PlatformLookupResult[] = [];
+
+  if (rawPlatform === 'all' || rawPlatform === 'discord') {
+    const visible = await collectVisibleUsernames(interaction);
+    const found = visible.usernames.has(normalizeUsername(username));
+
+    results.push({
+      platform: 'discord',
+      label: 'Discord',
+      status: found ? 'found' : 'unknown',
+      detail: found
+        ? `An exact username match is visible to HIT among ${visible.usernames.size.toLocaleString('en-US')} cached or refreshed Discord users.`
+        : `No exact match was visible among ${visible.usernames.size.toLocaleString('en-US')} users. This does not prove global Discord availability.`,
+    });
+  }
+
+  if (rawPlatform !== 'discord') {
+    results.push(...await checkExternalPlatforms(username, rawPlatform));
+  }
+
+  const counts = {
+    found: results.filter((result) => result.status === 'found').length,
+    notFound: results.filter((result) => result.status === 'not_found').length,
+    unknown: results.filter((result) =>
+      ['unknown', 'invalid', 'error'].includes(result.status),
+    ).length,
+  };
+
+  const selectedDetail = rawPlatform === 'all'
+    ? 'Run a single-platform check to see its full explanation.'
+    : results[0]?.detail ?? 'No lookup result was returned.';
+
+  const embed = new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`HIT NAME CHECK - ${username}`)
+    .setDescription(results.map(formatLookupLine).join('\n'))
+    .addFields(
+      {
+        name: 'Summary',
+        value:
+          `${counts.found} found/taken | ` +
+          `${counts.notFound} no public account | ` +
+          `${counts.unknown} unknown/blocked`,
+      },
+      {
+        name: 'Result details',
+        value: selectedDetail.slice(0, 1024),
+      },
+    )
+    .setFooter({
+      text: 'NO PUBLIC ACCOUNT and UNKNOWN do not guarantee that a name can be registered.',
+    })
+    .setTimestamp();
+
+  await interaction.editReply({
+    embeds: [embed],
   });
 }
