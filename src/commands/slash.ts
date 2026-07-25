@@ -105,6 +105,7 @@ export const hitCommand = new SlashCommandBuilder()
       { name: 'Reset user XP', value: 'reset-user' },
       { name: 'Sync user reward roles', value: 'sync-user' },
         { name: 'Sync all member reward roles', value: 'sync-all' },
+        { name: 'Import every Level N role', value: 'sync-rewards' },
       { name: 'Add reward role', value: 'add-reward' },
       { name: 'Remove reward role', value: 'remove-reward' },
       { name: 'List reward roles', value: 'list-rewards' },

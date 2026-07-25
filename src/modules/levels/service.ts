@@ -36,6 +36,7 @@ const VOICE_TICK_MS = 30_000;
 const HELP_DELETE_MS = 15_000;
 const BOOSTER_XP_MULTIPLIER = 1.5;
 const MAX_ANNOUNCED_REWARD_ROLES = 8;
+const LEVEL_ROLE_PATTERN = /^Level\s+(\d{1,4})$/i;
 const voiceAwardClocks = new Map<string, number>();
 
 function requireSettings(store: Store, guildId: string): LevelSettings {
@@ -537,16 +538,53 @@ async function diagnoseLevels(guild: Guild, settings: LevelSettings, store: Stor
   if (rewards.length > 0) {
     lines.push(permissionLine(bot.permissions.has(PermissionFlagsBits.ManageRoles), 'Manage Roles', 'Required for level reward roles.'));
   }
+
+  let missingRewards = 0;
+  let unmanageableRewards = 0;
   for (const reward of rewards) {
     const role = await guild.roles.fetch(reward.roleId).catch(() => null);
-    lines.push(permissionLine(Boolean(role), `Reward level ${reward.level}`, 'Configured reward role must exist.'));
-    if (role) lines.push(permissionLine(role.editable, `Reward role hierarchy ${reward.level}`, 'HIT must be above the reward role.'));
+    if (!role) missingRewards += 1;
+    else if (!role.editable) unmanageableRewards += 1;
   }
+
+  lines.push(permissionLine(missingRewards === 0, 'Reward roles exist', `${rewards.length - missingRewards}/${rewards.length} configured roles exist.`));
+  lines.push(permissionLine(unmanageableRewards === 0, 'Reward role hierarchy', `${rewards.length - unmanageableRewards}/${rewards.length} configured roles are manageable.`));
   return lines;
 }
 
 function roleIsValidReward(role: Role): boolean {
   return !role.managed && role.id !== role.guild.roles.everyone.id && role.editable;
+}
+
+async function syncNamedLevelRewards(
+  guild: Guild,
+  store: Store,
+): Promise<{ imported: number; skipped: number }> {
+  const roles = await guild.roles.fetch();
+  const byLevel = new Map<number, Role>();
+  let skipped = 0;
+
+  for (const role of roles.values()) {
+    const match = LEVEL_ROLE_PATTERN.exec(role.name.trim());
+    if (!match) continue;
+
+    const level = Number(match[1]);
+    if (!Number.isInteger(level) || level < 1 || level > MAX_LEVEL || !roleIsValidReward(role)) {
+      skipped += 1;
+      continue;
+    }
+
+    const existing = byLevel.get(level);
+    if (!existing || role.position > existing.position) {
+      byLevel.set(level, role);
+    }
+  }
+
+  for (const [level, role] of byLevel) {
+    store.upsertLevelReward(guild.id, level, role.id);
+  }
+
+  return { imported: byLevel.size, skipped };
 }
 
 function requireOptionalUser(interaction: ChatInputCommandInteraction): string {
@@ -586,6 +624,7 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       announceLevelUps: interaction.options.getBoolean('announce_level_ups') ?? existing?.announceLevelUps ?? true,
       stackRewardRoles: interaction.options.getBoolean('stack_reward_roles') ?? existing?.stackRewardRoles ?? true,
     });
+    const rewardSync = await syncNamedLevelRewards(interaction.guild, store);
     await interaction.reply({
       embeds: [new EmbedBuilder().setColor(SUCCESS).setTitle('HIT LEVELS CONFIGURED').addFields(
         { name: 'Status', value: settings.enabled ? 'Enabled' : 'Disabled', inline: true },
@@ -595,7 +634,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
         { name: 'Voice minimum', value: `${settings.voiceMinMembers} active members`, inline: true },
         { name: 'Announcements', value: settings.announceLevelUps ? channelMention(settings.announceChannelId) : 'Disabled', inline: true },
         { name: 'Logs', value: `<#${settings.logChannelId}>`, inline: true },
-        { name: 'Reward roles', value: settings.stackRewardRoles ? 'Stack all earned roles' : 'Keep highest earned role', inline: true },
+        { name: 'Reward behavior', value: settings.stackRewardRoles ? 'Stack all earned roles' : 'Keep highest earned role', inline: true },
+        { name: 'Named rewards imported', value: String(rewardSync.imported), inline: true },
       )],
       flags: MessageFlags.Ephemeral,
     });
@@ -657,6 +697,14 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       if (action === 'exclude-role') store.addLevelExcludedRole(interaction.guildId, role.id);
       else store.removeLevelExcludedRole(interaction.guildId, role.id);
       await interaction.reply({ content: `<@&${role.id}> is now ${action === 'exclude-role' ? 'excluded from' : 'included in'} XP earning.`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+    if (action === 'sync-rewards') {
+      const result = await syncNamedLevelRewards(interaction.guild, store);
+      await interaction.reply({
+        content: `Imported ${result.imported} editable Level N roles.${result.skipped > 0 ? ` Skipped ${result.skipped} invalid or unmanageable role(s).` : ''}`,
+        flags: MessageFlags.Ephemeral,
+      });
       return true;
     }
     if (action === 'list-rewards') {
@@ -863,7 +911,7 @@ export async function handleLevelsPrefixCommand(message: Message, store: Store, 
   if (!message.guild || message.author.bot) return;
   const prefix = store.getGuildSettings(message.guild.id)?.prefix ?? defaultPrefix;
   if (!message.content.startsWith(prefix)) return;
-  const [rawCommand, rawSubcommand] = message.content.slice(prefix.length).trim().split(/\s+/);
+  const [rawCommand, rawSubcommand, rawArgument] = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = rawCommand?.toLowerCase();
   if (!command || !['rank', 'level', 'leaderboard', 'lb', 'levels'].includes(command)) return;
   requireSettings(store, message.guild.id);
@@ -883,7 +931,8 @@ export async function handleLevelsPrefixCommand(message: Message, store: Store, 
   }
 
   if (rawSubcommand?.toLowerCase() === 'rewards') {
-    await message.reply({ embeds: [rewardsEmbed(message.guild, store)] });
+    const page = Number(rawArgument ?? 1);
+    await message.reply({ embeds: [rewardsEmbed(message.guild, store, Number.isFinite(page) ? page : 1)] });
     return;
   }
 
