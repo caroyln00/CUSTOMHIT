@@ -598,6 +598,28 @@ export const funCommand = new SlashCommandBuilder()
     .setDescription('Show a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s avatar.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member.')));
 
+export const nameSweepCommand = new SlashCommandBuilder()
+  .setName('namesweep')
+  .setDescription('Generate locally ranked short-name candidates.')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addStringOption((option) => option
+    .setName('category')
+    .setDescription('Candidate format.')
+    .setRequired(true)
+    .addChoices(
+      { name: '3 characters', value: '3c' },
+      { name: '3 letters', value: '3l' },
+      { name: '3 letters pronounceable', value: '3lp' },
+      { name: '4 characters', value: '4c' },
+      { name: '4 letters', value: '4l' },
+      { name: '4 letters pronounceable', value: '4lp' },
+    ))
+  .addIntegerOption((option) => option
+    .setName('count')
+    .setDescription('Number of ranked candidates to display.')
+    .setMinValue(1)
+    .setMaxValue(50));
+
 export const slashCommands = [
   hitCommand.toJSON(),
   ticketCommand.toJSON(),
@@ -614,4 +636,5 @@ export const slashCommands = [
   starboardCommand.toJSON(),
   passiveCommand.toJSON(),
   funCommand.toJSON(),
+  nameSweepCommand.toJSON(),
 ];

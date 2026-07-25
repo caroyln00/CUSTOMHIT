@@ -88,6 +88,7 @@ import {
   onPassiveMemberRemove,
 } from './modules/passive/service.js';
 import { handleFunSlashCommand } from './modules/fun/service.js';
+import { handleNameSweepSlashCommand } from './modules/namesweep/service.js';
 import {
   ensureCustomHitServerConfiguration,
   handleBoosterMemberUpdate,
@@ -232,6 +233,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isChatInputCommand() && interaction.commandName === 'fun') {
       await handleFunSlashCommand(interaction);
+      return;
+    }
+    if (interaction.isChatInputCommand() && interaction.commandName === 'namesweep') {
+      await handleNameSweepSlashCommand(interaction);
       return;
     }
     if (interaction.isChatInputCommand() && ['community', 'economy', 'counting', 'starboard'].includes(interaction.commandName)) {
