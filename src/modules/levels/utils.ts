@@ -1,14 +1,24 @@
 export const MAX_LEVEL = 1000;
-export const XP_PER_LEVEL_SQUARED = 10;
+export const LINEAR_BASE_XP = 75;
+export const LINEAR_XP_PER_LEVEL = 100;
 
 export function xpForLevel(level: number): number {
   const safeLevel = Math.max(0, Math.min(MAX_LEVEL, Math.trunc(level)));
-  return XP_PER_LEVEL_SQUARED * safeLevel * safeLevel;
+  return Math.trunc(
+    (LINEAR_XP_PER_LEVEL * safeLevel * (safeLevel - 1)) / 2
+    + (LINEAR_BASE_XP * safeLevel),
+  );
 }
 
 export function levelFromXp(xp: number): number {
   const safeXp = Math.max(0, Math.trunc(xp));
-  return Math.min(MAX_LEVEL, Math.floor(Math.sqrt(safeXp / XP_PER_LEVEL_SQUARED)));
+  const halfSlope = LINEAR_XP_PER_LEVEL / 2;
+  const linearTerm = LINEAR_BASE_XP - halfSlope;
+  const discriminant = (linearTerm * linearTerm) + (2 * LINEAR_XP_PER_LEVEL * safeXp);
+  const level = Math.floor(
+    (-linearTerm + Math.sqrt(discriminant)) / LINEAR_XP_PER_LEVEL,
+  );
+  return Math.max(0, Math.min(MAX_LEVEL, level));
 }
 
 export function levelUpBonus(oldLevel: number, newLevel: number): number {
