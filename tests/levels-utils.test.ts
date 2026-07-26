@@ -13,24 +13,27 @@ import {
 describe('levels utilities', () => {
   it('calculates total XP thresholds and levels', () => {
     expect(xpForLevel(0)).toBe(0);
-    expect(xpForLevel(1)).toBe(75);
-    expect(xpForLevel(5)).toBe(1375);
+    expect(xpForLevel(1)).toBe(10);
+    expect(xpForLevel(5)).toBe(250);
+    expect(xpForLevel(1000)).toBe(10_000_000);
     expect(levelFromXp(0)).toBe(0);
-    expect(levelFromXp(74)).toBe(0);
-    expect(levelFromXp(75)).toBe(1);
-    expect(levelFromXp(249)).toBe(1);
-    expect(levelFromXp(250)).toBe(2);
+    expect(levelFromXp(9)).toBe(0);
+    expect(levelFromXp(10)).toBe(1);
+    expect(levelFromXp(39)).toBe(1);
+    expect(levelFromXp(40)).toBe(2);
+    expect(levelFromXp(9_999_999)).toBe(999);
+    expect(levelFromXp(10_000_000)).toBe(1000);
     expect(levelFromXp(Number.MAX_SAFE_INTEGER)).toBe(MAX_LEVEL);
   });
 
   it('returns level-local progress', () => {
-    const progress = levelProgress(145);
+    const progress = levelProgress(25);
     expect(progress.level).toBe(1);
-    expect(progress.currentLevelXp).toBe(75);
-    expect(progress.nextLevelXp).toBe(250);
-    expect(progress.progressXp).toBe(70);
-    expect(progress.requiredXp).toBe(175);
-    expect(progress.ratio).toBe(0.4);
+    expect(progress.currentLevelXp).toBe(10);
+    expect(progress.nextLevelXp).toBe(40);
+    expect(progress.progressXp).toBe(15);
+    expect(progress.requiredXp).toBe(30);
+    expect(progress.ratio).toBe(0.5);
   });
 
   it('calculates cumulative level-up bonus XP', () => {
