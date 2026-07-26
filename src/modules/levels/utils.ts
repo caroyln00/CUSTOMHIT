@@ -19,7 +19,7 @@ export function levelUpBonus(oldLevel: number, newLevel: number): number {
   if (count <= 0) return 0;
   const first = safeOld + 1;
   const levelSum = ((first + safeNew) * count) / 2;
-  return Math.trunc((count * 5) + (levelSum * 2));
+  return Math.trunc((count * 10) + (levelSum * 5));
 }
 
 export interface LevelProgress {

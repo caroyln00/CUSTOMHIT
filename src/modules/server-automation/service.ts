@@ -358,9 +358,9 @@ function ensureLevelConfiguration(guild: Guild, store: Store): void {
 
   const legacyRates = (
     current.messageXpMin === 15
-    && current.messageXpMax === 25
+    && (current.messageXpMax === 25 || current.messageXpMax === 40)
     && current.messageCooldownSeconds === 60
-    && current.voiceXpPerMinute === 10
+    && (current.voiceXpPerMinute === 0 || current.voiceXpPerMinute === 10)
   );
   store.upsertLevelSettings({
     ...current,
