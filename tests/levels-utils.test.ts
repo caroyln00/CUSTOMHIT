@@ -37,8 +37,8 @@ describe('levels utilities', () => {
   });
 
   it('calculates cumulative level-up bonus XP', () => {
-    expect(levelUpBonus(0, 1)).toBe(7);
-    expect(levelUpBonus(1, 3)).toBe(20);
+    expect(levelUpBonus(0, 1)).toBe(15);
+    expect(levelUpBonus(1, 3)).toBe(45);
     expect(levelUpBonus(50, 50)).toBe(0);
   });
 

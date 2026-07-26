@@ -608,8 +608,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
     if (announceChannel && announceChannel.type !== ChannelType.GuildText && announceChannel.type !== ChannelType.GuildAnnouncement) {
       throw new Error('Announcement channel must be a standard text or announcement channel.');
     }
-    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 15;
-    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 40;
+    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 50;
+    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 100;
     if (messageXpMin > messageXpMax) throw new Error('Message XP minimum cannot exceed the maximum.');
     const settings = store.upsertLevelSettings({
       guildId: interaction.guildId,
@@ -618,8 +618,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       logChannelId: logChannel.id,
       messageXpMin,
       messageXpMax,
-      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 60,
-      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 0,
+      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 15,
+      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 50,
       voiceMinMembers: interaction.options.getInteger('voice_min_members') ?? existing?.voiceMinMembers ?? 2,
       announceLevelUps: interaction.options.getBoolean('announce_level_ups') ?? existing?.announceLevelUps ?? true,
       stackRewardRoles: interaction.options.getBoolean('stack_reward_roles') ?? existing?.stackRewardRoles ?? false,
