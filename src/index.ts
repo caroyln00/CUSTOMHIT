@@ -89,10 +89,6 @@ import {
 } from './modules/passive/service.js';
 import { handleFunSlashCommand } from './modules/fun/service.js';
 import {
-  handleNameCheckSlashCommand,
-  handleNameSweepSlashCommand,
-} from './modules/namesweep/service.js';
-import {
   ensureCustomHitServerConfiguration,
   handleBoosterMemberUpdate,
 } from './modules/server-automation/service.js';
@@ -173,7 +169,7 @@ client.on(Events.MessageCreate, async (message) => {
     await handleCommunityPrefixCommand(message, store, env.defaultPrefix);
   } catch (error) {
     logger.error('Prefix command failed', { guildId: message.guildId ?? undefined, userId: message.author.id, error: String(error) });
-    await message.reply(`✖ ${error instanceof Error ? error.message : 'HIT encountered an error.'}`).catch(() => undefined);
+    await message.reply(`âœ– ${error instanceof Error ? error.message : 'HIT encountered an error.'}`).catch(() => undefined);
   }
 });
 
@@ -238,20 +234,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleFunSlashCommand(interaction);
       return;
     }
-    if (interaction.isChatInputCommand() && interaction.commandName === 'namesweep') {
-      await handleNameSweepSlashCommand(interaction);
-      return;
-    }
-    if (interaction.isChatInputCommand() && interaction.commandName === 'namecheck') {
-      await handleNameCheckSlashCommand(interaction);
-      return;
-    }
     if (interaction.isChatInputCommand() && ['community', 'economy', 'counting', 'starboard'].includes(interaction.commandName)) {
       await handleCommunitySlashCommand(interaction, store);
     }
   } catch (error) {
     logger.error('Interaction failed', { guildId: interaction.guildId ?? undefined, userId: interaction.user.id, error: String(error) });
-    const payload = { content: `✖ ${error instanceof Error ? error.message : 'HIT encountered an error.'}`, flags: MessageFlags.Ephemeral as const };
+    const payload = { content: `âœ– ${error instanceof Error ? error.message : 'HIT encountered an error.'}`, flags: MessageFlags.Ephemeral as const };
     if (interaction.isRepliable()) {
       if (interaction.replied || interaction.deferred) await interaction.followUp(payload).catch(() => undefined);
       else await interaction.reply(payload).catch(() => undefined);

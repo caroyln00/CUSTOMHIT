@@ -90,7 +90,7 @@ export const hitCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('levels-config').setDescription('Show the active HIT levels configuration.'))
   .addSubcommand((subcommand) => subcommand
     .setName('levels-manage')
-    .setDescription('Manage XP exclusions, status, or a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s XP.')
+    .setDescription('Manage XP exclusions, status, or a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s XP.')
     .addStringOption((option) => option.setName('action').setDescription('Management action.').setRequired(true).addChoices(
       { name: 'Enable levels', value: 'enable' },
       { name: 'Disable levels', value: 'disable' },
@@ -199,7 +199,7 @@ export const modCommand = new SlashCommandBuilder()
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the warning.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('warnings')
-    .setDescription('View a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s active warnings.')
+    .setDescription('View a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s active warnings.')
     .addUserOption((option) => option.setName('user').setDescription('Member to inspect.').setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('clearwarnings')
@@ -214,7 +214,7 @@ export const modCommand = new SlashCommandBuilder()
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the timeout.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('untimeout')
-    .setDescription('Remove a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s timeout.')
+    .setDescription('Remove a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s timeout.')
     .addUserOption((option) => option.setName('user').setDescription('Member whose timeout will be removed.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for removing the timeout.').setMinLength(2).setMaxLength(500).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
@@ -227,7 +227,7 @@ export const modCommand = new SlashCommandBuilder()
     .setDescription('Ban a user after confirmation.')
     .addUserOption((option) => option.setName('user').setDescription('User to ban.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the ban.').setMinLength(2).setMaxLength(500).setRequired(true))
-    .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“7 days of recent messages.').setMinValue(0).setMaxValue(7)))
+    .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete 0ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ7 days of recent messages.').setMinValue(0).setMaxValue(7)))
   .addSubcommand((subcommand) => subcommand
     .setName('unban')
     .setDescription('Unban a user by Discord ID.')
@@ -246,7 +246,7 @@ export const modCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('unlock').setDescription('Restore inherited messaging permissions for @everyone.'))
   .addSubcommand((subcommand) => subcommand
     .setName('nick')
-    .setDescription('Change or reset a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s nickname.')
+    .setDescription('Change or reset a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s nickname.')
     .addUserOption((option) => option.setName('user').setDescription('Member to update.').setRequired(true))
     .addStringOption((option) => option.setName('reason').setDescription('Reason for the nickname change.').setMinLength(2).setMaxLength(500).setRequired(true))
     .addStringOption((option) => option.setName('nickname').setDescription('New nickname; omit to reset.').setMaxLength(32)))
@@ -268,7 +268,7 @@ export const modCommand = new SlashCommandBuilder()
     .addIntegerOption((option) => option.setName('id').setDescription('Case ID.').setMinValue(1).setRequired(true)))
   .addSubcommand((subcommand) => subcommand
     .setName('history')
-    .setDescription('View a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s recent moderation history.')
+    .setDescription('View a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s recent moderation history.')
     .addUserOption((option) => option.setName('user').setDescription('Member to inspect.').setRequired(true))
     .addIntegerOption((option) => option.setName('limit').setDescription('Cases to show.').setMinValue(1).setMaxValue(25)));
 
@@ -338,7 +338,7 @@ export const levelCommand = new SlashCommandBuilder()
   .setDescription('View HIT levels, rankings, and rewards.')
   .addSubcommand((subcommand) => subcommand
     .setName('rank')
-    .setDescription('Show your rank or another memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s rank.')
+    .setDescription('Show your rank or another memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s rank.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member to inspect.')))
   .addSubcommand((subcommand) => subcommand
     .setName('leaderboard')
@@ -441,7 +441,7 @@ export const communityCommand = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName('starboard-disable').setDescription('Disable new starboard posts while preserving existing records.'))
   .addSubcommand((subcommand) => subcommand
     .setName('economy-manage')
-    .setDescription('Add, remove, or set a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s economy balance.')
+    .setDescription('Add, remove, or set a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s economy balance.')
     .addStringOption((option) => option.setName('action').setDescription('Balance operation.').setRequired(true).addChoices(
       { name: 'Add', value: 'add' },
       { name: 'Remove', value: 'remove' },
@@ -455,7 +455,7 @@ export const economyCommand = new SlashCommandBuilder()
   .setDescription('Use the HIT server economy.')
   .addSubcommand((subcommand) => subcommand
     .setName('balance')
-    .setDescription('Show your balance or another memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s balance.')
+    .setDescription('Show your balance or another memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s balance.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member to inspect.')))
   .addSubcommand((subcommand) => subcommand.setName('daily').setDescription('Claim your daily economy reward.'))
   .addSubcommand((subcommand) => subcommand.setName('work').setDescription('Work for a random economy reward.'))
@@ -595,75 +595,8 @@ export const funCommand = new SlashCommandBuilder()
     .addUserOption((option) => option.setName('user').setDescription('Optional member.')))
   .addSubcommand((subcommand) => subcommand
     .setName('avatar')
-    .setDescription('Show a memberÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s avatar.')
+    .setDescription('Show a memberÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s avatar.')
     .addUserOption((option) => option.setName('user').setDescription('Optional member.')));
-
-export const nameSweepCommand = new SlashCommandBuilder()
-  .setName('namesweep')
-  .setDescription('Generate mathematically ranked short-name candidates.')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addStringOption((option) => option
-    .setName('category')
-    .setDescription('Candidate format.')
-    .setRequired(true)
-    .addChoices(
-      { name: '2 characters', value: '2c' },
-      { name: '2 letters', value: '2l' },
-      { name: '2 letters pronounceable', value: '2lp' },
-      { name: '2 digits', value: '2n' },
-      { name: '3 characters', value: '3c' },
-      { name: '3 letters', value: '3l' },
-      { name: '3 letters pronounceable', value: '3lp' },
-      { name: '3 digits', value: '3n' },
-      { name: '4 characters', value: '4c' },
-      { name: '4 letters', value: '4l' },
-      { name: '4 letters pronounceable', value: '4lp' },
-      { name: '4 digits', value: '4n' },
-    ))
-  .addIntegerOption((option) => option
-    .setName('count')
-    .setDescription('Ranked candidates from 1 to 1000.')
-    .setMinValue(1)
-    .setMaxValue(1000));
-
-export const nameCheckCommand = new SlashCommandBuilder()
-  .setName('namecheck')
-  .setDescription('Check a custom username across major public platforms.')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addStringOption((option) => option
-    .setName('username')
-    .setDescription('Exact username, handle, gamertag, or profile slug.')
-    .setRequired(true)
-    .setMinLength(1)
-    .setMaxLength(64))
-  .addStringOption((option) => option
-    .setName('platform')
-    .setDescription('Platform to inspect. Defaults to all.')
-    .addChoices(
-      { name: 'All supported platforms', value: 'all' },
-      { name: 'Discord visible users', value: 'discord' },
-      { name: 'GitHub', value: 'github' },
-      { name: 'Reddit', value: 'reddit' },
-      { name: 'Roblox', value: 'roblox' },
-      { name: 'Twitch', value: 'twitch' },
-      { name: 'YouTube', value: 'youtube' },
-      { name: 'Steam', value: 'steam' },
-      { name: 'Bluesky', value: 'bluesky' },
-      { name: 'Xbox', value: 'xbox' },
-      { name: 'PlayStation', value: 'playstation' },
-      { name: 'X / Twitter', value: 'x' },
-      { name: 'Instagram', value: 'instagram' },
-      { name: 'TikTok', value: 'tiktok' },
-      { name: 'Threads', value: 'threads' },
-      { name: 'Facebook', value: 'facebook' },
-      { name: 'Snapchat', value: 'snapchat' },
-      { name: 'Pinterest', value: 'pinterest' },
-      { name: 'Tumblr', value: 'tumblr' },
-      { name: 'SoundCloud', value: 'soundcloud' },
-      { name: 'Kick', value: 'kick' },
-      { name: 'LinkedIn', value: 'linkedin' },
-      { name: 'Telegram', value: 'telegram' },
-    ));
 
 export const slashCommands = [
   hitCommand.toJSON(),
@@ -681,6 +614,4 @@ export const slashCommands = [
   starboardCommand.toJSON(),
   passiveCommand.toJSON(),
   funCommand.toJSON(),
-  nameSweepCommand.toJSON(),
-  nameCheckCommand.toJSON(),
 ];

@@ -460,7 +460,7 @@ async function leaderboardEmbed(guild: Guild, store: Store, page: number): Promi
     ? ['No members have earned XP yet.']
     : profiles.map((profile, index) => {
       const position = offset + index + 1;
-      return `**${position}.** <@${profile.userId}> â€” Level ${levelFromXp(profile.xp)} â€” ${profile.xp.toLocaleString()} XP`;
+      return `**${position}.** <@${profile.userId}> - Level ${levelFromXp(profile.xp)} - ${profile.xp.toLocaleString()} XP`;
     });
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -516,7 +516,7 @@ export async function handleLevelSlashCommand(interaction: ChatInputCommandInter
 }
 
 function permissionLine(ok: boolean, label: string, detail: string): string {
-  return `${ok ? 'PASS' : 'FAIL'} ${label} â€” ${detail}`;
+  return `${ok ? 'PASS' : 'FAIL'} ${label} - ${detail}`;
 }
 
 async function diagnoseLevels(guild: Guild, settings: LevelSettings, store: Store): Promise<string[]> {
@@ -608,8 +608,8 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
     if (announceChannel && announceChannel.type !== ChannelType.GuildText && announceChannel.type !== ChannelType.GuildAnnouncement) {
       throw new Error('Announcement channel must be a standard text or announcement channel.');
     }
-    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 50;
-    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 100;
+    const messageXpMin = interaction.options.getInteger('message_xp_min') ?? existing?.messageXpMin ?? 15;
+    const messageXpMax = interaction.options.getInteger('message_xp_max') ?? existing?.messageXpMax ?? 40;
     if (messageXpMin > messageXpMax) throw new Error('Message XP minimum cannot exceed the maximum.');
     const settings = store.upsertLevelSettings({
       guildId: interaction.guildId,
@@ -618,11 +618,11 @@ export async function handleHitLevelsAdminCommand(interaction: ChatInputCommandI
       logChannelId: logChannel.id,
       messageXpMin,
       messageXpMax,
-      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 15,
-      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 50,
+      messageCooldownSeconds: interaction.options.getInteger('message_cooldown_seconds') ?? existing?.messageCooldownSeconds ?? 60,
+      voiceXpPerMinute: interaction.options.getInteger('voice_xp_per_minute') ?? existing?.voiceXpPerMinute ?? 0,
       voiceMinMembers: interaction.options.getInteger('voice_min_members') ?? existing?.voiceMinMembers ?? 2,
       announceLevelUps: interaction.options.getBoolean('announce_level_ups') ?? existing?.announceLevelUps ?? true,
-      stackRewardRoles: interaction.options.getBoolean('stack_reward_roles') ?? existing?.stackRewardRoles ?? true,
+      stackRewardRoles: interaction.options.getBoolean('stack_reward_roles') ?? existing?.stackRewardRoles ?? false,
     });
     const rewardSync = await syncNamedLevelRewards(interaction.guild, store);
     await interaction.reply({

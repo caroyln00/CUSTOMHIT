@@ -1,33 +1,33 @@
 {
-  "name": "hit-private-all-in-one",
-  "version": "97.21.43",
-  "private": true,
-  "description": "HIT v97.21.43: private all-in-one Discord bot with production cloud deployment for 24/7 moderation.",
-  "type": "module",
-  "engines": {
-    "node": ">=24.0.0"
-  },
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "register": "tsx src/register-commands.ts",
-    "build": "tsc -p tsconfig.json",
-    "start:prod": "node dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "register:prod": "node dist/register-commands.js",
-    "start:cloud": "node dist/register-commands.js && node dist/index.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.22.0",
-    "dotenv": "^17.2.1",
-    "pngjs": "^7.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/pngjs": "^6.0.5",
-    "tsx": "^4.20.3",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
-  }
+    "name":  "hit-private-all-in-one",
+    "version":  "97.21.43",
+    "private":  true,
+    "description":  "HIT v97.21.43: private all-in-one Discord bot with production cloud deployment for 24/7 moderation.",
+    "type":  "module",
+    "engines":  {
+                    "node":  "\u003e=24.0.0"
+                },
+    "scripts":  {
+                    "dev":  "tsx watch src/index.ts",
+                    "start":  "tsx src/index.ts",
+                    "register":  "tsx src/register-commands.ts",
+                    "build":  "node -e \"require(\u0027node:fs\u0027).rmSync(\u0027dist\u0027,{recursive:true,force:true})\" \u0026\u0026 tsc -p tsconfig.build.json",
+                    "start:prod":  "node dist/index.js",
+                    "typecheck":  "tsc -p tsconfig.json --noEmit",
+                    "test":  "vitest run",
+                    "register:prod":  "node dist/register-commands.js",
+                    "start:cloud":  "node dist/register-commands.js \u0026\u0026 node dist/index.js"
+                },
+    "dependencies":  {
+                         "discord.js":  "^14.22.0",
+                         "dotenv":  "^17.2.1",
+                         "pngjs":  "^7.0.0"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^24.0.0",
+                            "@types/pngjs":  "^6.0.5",
+                            "tsx":  "^4.20.3",
+                            "typescript":  "^5.9.2",
+                            "vitest":  "^3.2.4"
+                        }
 }

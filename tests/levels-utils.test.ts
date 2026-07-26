@@ -13,24 +13,24 @@ import {
 describe('levels utilities', () => {
   it('calculates total XP thresholds and levels', () => {
     expect(xpForLevel(0)).toBe(0);
-    expect(xpForLevel(1)).toBe(10);
-    expect(xpForLevel(5)).toBe(250);
+    expect(xpForLevel(1)).toBe(75);
+    expect(xpForLevel(5)).toBe(1375);
     expect(levelFromXp(0)).toBe(0);
-    expect(levelFromXp(9)).toBe(0);
-    expect(levelFromXp(10)).toBe(1);
-    expect(levelFromXp(39)).toBe(1);
-    expect(levelFromXp(40)).toBe(2);
+    expect(levelFromXp(74)).toBe(0);
+    expect(levelFromXp(75)).toBe(1);
+    expect(levelFromXp(249)).toBe(1);
+    expect(levelFromXp(250)).toBe(2);
     expect(levelFromXp(Number.MAX_SAFE_INTEGER)).toBe(MAX_LEVEL);
   });
 
   it('returns level-local progress', () => {
-    const progress = levelProgress(25);
+    const progress = levelProgress(145);
     expect(progress.level).toBe(1);
-    expect(progress.currentLevelXp).toBe(10);
-    expect(progress.nextLevelXp).toBe(40);
-    expect(progress.progressXp).toBe(15);
-    expect(progress.requiredXp).toBe(30);
-    expect(progress.ratio).toBe(0.5);
+    expect(progress.currentLevelXp).toBe(75);
+    expect(progress.nextLevelXp).toBe(250);
+    expect(progress.progressXp).toBe(70);
+    expect(progress.requiredXp).toBe(175);
+    expect(progress.ratio).toBe(0.4);
   });
 
   it('calculates cumulative level-up bonus XP', () => {
@@ -46,9 +46,9 @@ describe('levels utilities', () => {
   });
 
   it('awards inclusive random XP ranges', () => {
-    expect(randomXp(15, 25, () => 0)).toBe(15);
-    expect(randomXp(15, 25, () => 0.999999)).toBe(25);
-    expect(randomXp(25, 15, () => 0)).toBe(15);
+    expect(randomXp(15, 40, () => 0)).toBe(15);
+    expect(randomXp(15, 40, () => 0.999999)).toBe(40);
+    expect(randomXp(40, 15, () => 0)).toBe(15);
   });
 
   it('rejects empty, link-only, and tiny messages', () => {

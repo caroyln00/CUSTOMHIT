@@ -946,7 +946,7 @@ export class Store {
         counting_delete_invalid INTEGER NOT NULL DEFAULT 1,
         starboard_channel_id TEXT,
         star_threshold INTEGER NOT NULL DEFAULT 3 CHECK(star_threshold >= 1),
-        star_emoji TEXT NOT NULL DEFAULT '⭐',
+        star_emoji TEXT NOT NULL DEFAULT 'â­',
         allow_self_star INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL
       );
@@ -1088,12 +1088,12 @@ export class Store {
         announce_channel_id TEXT,
         log_channel_id TEXT NOT NULL,
         message_xp_min INTEGER NOT NULL DEFAULT 15,
-        message_xp_max INTEGER NOT NULL DEFAULT 25,
+        message_xp_max INTEGER NOT NULL DEFAULT 40,
         message_cooldown_seconds INTEGER NOT NULL DEFAULT 60,
-        voice_xp_per_minute INTEGER NOT NULL DEFAULT 10,
+        voice_xp_per_minute INTEGER NOT NULL DEFAULT 0,
         voice_min_members INTEGER NOT NULL DEFAULT 2,
         announce_level_ups INTEGER NOT NULL DEFAULT 1,
-        stack_reward_roles INTEGER NOT NULL DEFAULT 1,
+        stack_reward_roles INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL
       );
 
