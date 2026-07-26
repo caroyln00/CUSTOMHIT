@@ -460,7 +460,7 @@ async function leaderboardEmbed(guild: Guild, store: Store, page: number): Promi
     ? ['No members have earned XP yet.']
     : profiles.map((profile, index) => {
       const position = offset + index + 1;
-      return `**${position}.** <@${profile.userId}> - Level ${levelFromXp(profile.xp)} - ${profile.xp.toLocaleString()} XP`;
+      return `**${position}.** <@${profile.userId}> - Level ${levelFromXp(profile.xp)} - ${profile.xp.toLocaleString()} XP`;
     });
   return new EmbedBuilder()
     .setColor(COLOR)
@@ -516,7 +516,7 @@ export async function handleLevelSlashCommand(interaction: ChatInputCommandInter
 }
 
 function permissionLine(ok: boolean, label: string, detail: string): string {
-  return `${ok ? 'PASS' : 'FAIL'} ${label} - ${detail}`;
+  return `${ok ? 'PASS' : 'FAIL'} ${label} - ${detail}`;
 }
 
 async function diagnoseLevels(guild: Guild, settings: LevelSettings, store: Store): Promise<string[]> {
